@@ -7,6 +7,7 @@ const path = require('path');
 // Import our custom middleware engines
 const { parseExcelToJson } = require('./extraction/parser');
 const { generateProvenanceHash } = require('./hashing/hasher');
+const { pushToBOE } = require('./boe-handoff');
 
 const app = express();
 const port = 5000;
@@ -54,8 +55,6 @@ app.post('/api/ingest', upload.single('gradingSheet'), async (req, res) => {
 
         if (isDuplicate) {
             console.log(`⚠️ Duplicate Payload Detected. Hash already exists in ledger. Skipped saving.`);
-            
-            // Return a 200 OK, but let the frontend know it was already in the system
             return res.status(200).json({ 
                 message: 'Data already securely anchored in the Private Ledger.',
                 fileName: req.file.originalname,
@@ -71,7 +70,11 @@ app.post('/api/ingest', upload.single('gradingSheet'), async (req, res) => {
         ledger.push(sealedRecord);
         fs.writeFileSync(ledgerPath, JSON.stringify(ledger, null, 2));
 
-        console.log(`✅ Success! Provenance Hash: ${sealedRecord.provenanceHash}\n`);
+        console.log(`✅ Success! Provenance Hash: ${sealedRecord.provenanceHash}`);
+
+        // --- STAGE 4: OUTBOUND API PIPELINE (Handoff to BOE) ---
+        // We pass the sealedRecord (which contains the metadata) and the raw standardizedJson
+        const handoffResult = await pushToBOE(sealedRecord, standardizedJson);
 
         res.status(200).json({ 
             message: 'Extraction and Hashing successful!',
@@ -80,7 +83,9 @@ app.post('/api/ingest', upload.single('gradingSheet'), async (req, res) => {
             uploader: sealedRecord.uploader,
             recordCount: sealedRecord.recordCount,
             provenanceHash: sealedRecord.provenanceHash,
-            status: 'new'
+            status: 'new',
+            syncStatus: handoffResult.status,       // 'synced' or 'queued'
+            syncMessage: handoffResult.message
         });
 
     } catch (error) {

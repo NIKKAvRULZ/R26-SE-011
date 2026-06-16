@@ -1,0 +1,155 @@
+/* frontend/src/components/VerificationPortal.css */
+
+.verification-container {
+  min-height: 100vh;
+  background: #0a0a0a;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4rem 2rem;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.verification-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.verification-header h1 {
+  font-size: 2.5rem;
+  background: linear-gradient(to right, #ffffff, #888888);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 0.5rem;
+}
+
+.search-box {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 2rem;
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+  width: 100%;
+  max-width: 600px;
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 3rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.search-box input {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 1rem;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  outline: none;
+  transition: border-color 0.3s ease;
+}
+
+.search-box input:focus {
+  border-color: #4CAF50;
+}
+
+.search-box button {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  padding: 0 2rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.search-box button:hover {
+  background: #45a049;
+}
+
+/* Dashboard Results Panel */
+.dashboard-panel {
+  width: 100%;
+  max-width: 900px;
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 2rem;
+  animation: fadeIn 0.5s ease forwards;
+}
+
+.gpa-card {
+  background: linear-gradient(145deg, #1a1a1a, #0a0a0a);
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  border-radius: 16px;
+  padding: 2rem;
+  text-align: center;
+  box-shadow: 0 0 20px rgba(76, 175, 80, 0.1);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.gpa-value {
+  font-size: 4rem;
+  font-weight: 800;
+  color: #4CAF50;
+  margin: 1rem 0;
+  text-shadow: 0 0 20px rgba(76, 175, 80, 0.4);
+}
+
+.gpa-label {
+  color: #888;
+  font-size: 0.9rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.grades-table {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 2rem;
+  backdrop-filter: blur(10px);
+}
+
+.grade-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.grade-row:last-child {
+  border-bottom: none;
+}
+
+.module-code {
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.badge-verified {
+  background: rgba(76, 175, 80, 0.2);
+  color: #4CAF50;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  border: 1px solid rgba(76, 175, 80, 0.5);
+}
+
+.error-message {
+  color: #ff5252;
+  background: rgba(255, 82, 82, 0.1);
+  padding: 1rem 2rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 82, 82, 0.3);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}

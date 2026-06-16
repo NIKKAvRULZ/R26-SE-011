@@ -1,1 +1,76 @@
-[]
+[
+  {
+    "provenanceHash": "6fe41d5f7675d78f4a1908fabb172a85f53a283043f1c2c2b5cd85bf78044674",
+    "extractedAt": "2026-06-16T09:05:10.098Z",
+    "recordCount": 4,
+    "data": [
+      {
+        "candidateId": "IT22061348",
+        "gradingData": {
+          "Assg 1 (20)": "18",
+          "Final (50)": "42",
+          "Final Grade": "A",
+          "Midterm (30)": "25",
+          "Total Score": "85"
+        }
+      },
+      {
+        "candidateId": "IT22111210",
+        "gradingData": {
+          "Assg 1 (20)": "15",
+          "Final (50)": "35",
+          "Final Grade": "B-",
+          "Midterm (30)": "20",
+          "Total Score": "70"
+        }
+      },
+      {
+        "candidateId": "IT22206282",
+        "gradingData": {
+          "Assg 1 (20)": "19",
+          "Final (50)": "48",
+          "Final Grade": "A+",
+          "Midterm (30)": "28",
+          "Total Score": "95"
+        }
+      },
+      {
+        "candidateId": "IT22276346",
+        "gradingData": {
+          "Assg 1 (20)": "12",
+          "Final (50)": "25",
+          "Final Grade": "C",
+          "Midterm (30)": "18",
+          "Total Score": "55"
+        }
+      }
+    ],
+    "moduleCode": "CS4020",
+    "uploader": "Dr. Nithika Perera"
+  },
+  {
+    "provenanceHash": "d5ef0588969b7ca345f8edc1795843b4fcd7f8c11acec081549b459d6c98829d",
+    "extractedAt": "2026-06-16T09:05:30.784Z",
+    "recordCount": 2,
+    "data": [
+      {
+        "candidateId": "IT22061348",
+        "gradingData": {
+          "Appealed Grade": "A",
+          "BOE Approval": "APPROVED",
+          "Previous Grade": "A-"
+        }
+      },
+      {
+        "candidateId": "IT22206282",
+        "gradingData": {
+          "Appealed Grade": "B-",
+          "BOE Approval": "APPROVED",
+          "Previous Grade": "C+"
+        }
+      }
+    ],
+    "moduleCode": "SE3010",
+    "uploader": "Dr. Nithika Perera"
+  }
+]
