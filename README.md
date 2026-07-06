@@ -76,38 +76,35 @@ graph TD
 ## 🏗 System Components
 
 <details>
-<summary><b>🧩 COMPONENT 3 — DATA INGESTION LAYER</b></summary>
+<summary><b>🧩 COMPONENT 3 — DATA INGESTION LAYER (Silent Bridge)</b></summary>
 
 ### 🎯 Purpose
-Acts as the secure "front door" of the system. It handles manual lecturer uploads, creates the initial secure ledger blocks, verifies uploads, and standardizes records for Component 2.
+Acts as the secure, decentralized "front door" of the system. It handles manual lecturer uploads, dynamically standardizes schema heterogeneity, and seals records into a temporary private cryptographic ledger before BOE handoff.
 
-#### ✅ The Ingestion Method
-The system relies on lecturers *manually* uploading Excel sheets, CSV files, or LMS exports. It does not use direct automated LMS extraction, ensuring a deliberate and verifiable submission process.
-
-#### ✅ Addressing Schema Heterogeneity
-Unlike simple systems that just grab a final grade, Component 3 dynamically parses complex rubrics. Using `SheetJS`, it grabs *all* grading columns (e.g., Assignment 1, Midterm, Final) and packages them into a comprehensive `gradingData` object. It also successfully removes unnecessary PII (Personally Identifiable Information) data to maintain privacy.
-
-#### ✅ Features Completed
-- 🔐 Lecturer login (Mock SSO)
-- 📄 Manual Excel/CSV upload handling
-- ⚙️ Dynamic parsing & schema heterogeneity resolution using SheetJS
-- 🗑 Removing PII / unnecessary data for privacy
-- 🔑 Initial SHA-256 hashing engine setup
-- 🛡 Duplicate prevention & validation
-- 🖥 **Verification Portal UI**: Drives the React dashboard that employers will eventually use to query the system (Feature 1 of Component 4).
+#### ✅ Core Engineering Features
+- **Schema-Agnostic Parsing**: Utilizes `SheetJS` to dynamically extract complex, heterogeneous grading rubrics (e.g., Assignment 1, Midterm, Final) without breaking.
+- **PDPA Privacy Compliance**: Automatically strips Personally Identifiable Information (PII) like names and emails, anchoring only Candidate IDs and Grades.
+- **Cryptographic Private Ledger**: Replaces standard databases with a mathematically linked, append-only JSON blockchain. Every upload generates a SHA-256 `blockHash` tied to the `previousHash`.
+- **Idempotency Control (Duplicate Rejection)**: Deterministically calculates payload hashes to intercept and reject duplicate file uploads before they consume network bandwidth.
+- **Context-Aware Routing**: UI includes a bypass flag allowing lecturers to mark specific uploads as formal "Re-corrections," altering downstream BOE handling.
 
 #### ✅ Output & Handoff to Component 2
-Sends deeply standardized student records to Component 2. While the high-level architecture distills this down to `Student ID + Module Code + Final Grade` for hashing, Component 3 actually passes the fully rich dataset:
+Sends a strictly standardized API contract to the BOE Layer. The payload includes critical cryptographic metadata and the context-routing flag:
 ```json
 {
-  "studentId": "IT001",
-  "moduleCode": "SE4010",
-  "gradingData": {
-    "assignment1": 85,
-    "midterm": 78,
-    "final": 90,
-    "totalGrade": "A"
-  }
+  "metadata": {
+    "provenanceHash": "916592246832a4d97d5cbdb310389cc510c4ed2888e2c954d77d53ef054827ae",
+    "moduleCode": "SE4010",
+    "uploaderName": "Dr. Nithika Perera",
+    "isRecorrection": false,
+    "source": "COMPONENT_3_SILENT_BRIDGE"
+  },
+  "records": [
+    {
+      "candidateId": "IT22061348",
+      "gradingData": { "Credits": "4", "Final Grade": "A+" }
+    }
+  ]
 }
 ```
 *From here, Component 2 handles Appeals/Corrections and generates the strict hash for the Merkle Tree.*
@@ -239,12 +236,10 @@ The development of this project was modularized into distinct branches to isolat
 ---
 
 ## 🔮 Future Work
-- 🚀 Ethereum smart contract deployment.
-- 🔌 Full API integration between components.
-- 🧪 End-to-end testing with real university datasets.
-- 🖥 Final employer verification portal.
-- ⛓️ Public blockchain anchoring.
-- 🤖 Automated Merkle proof generation.
+- 🚀 Ethereum smart contract deployment and mainnet execution.
+- 🔌 Full bi-directional API integration between Component 3 and Component 2.
+- 🧪 End-to-end stress testing with massive historical university datasets.
+- 🤖 Automated Merkle proof generation bridging IPFS to the front-end verifier.
 
 <br/>
 <div align="center">
