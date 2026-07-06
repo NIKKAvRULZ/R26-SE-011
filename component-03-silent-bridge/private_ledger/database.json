@@ -1,76 +1,104 @@
 [
   {
-    "provenanceHash": "6fe41d5f7675d78f4a1908fabb172a85f53a283043f1c2c2b5cd85bf78044674",
-    "extractedAt": "2026-06-16T09:05:10.098Z",
+    "timestamp": "2026-07-06T09:27:10.407Z",
+    "moduleCode": "SE4010",
+    "uploader": "Dr. Nithika Perera",
+    "isRecorrection": false,
     "recordCount": 4,
+    "payloadHash": "14f682cb0f03958b1b0963a21e1388c8c9c4ba629e51146fb8e3235f0711f34e",
     "data": [
       {
         "candidateId": "IT22061348",
         "gradingData": {
-          "Assg 1 (20)": "18",
-          "Final (50)": "42",
-          "Final Grade": "A",
-          "Midterm (30)": "25",
-          "Total Score": "85"
+          "Credits": "4",
+          "Final Grade": "A+"
         }
       },
       {
-        "candidateId": "IT22111210",
+        "candidateId": "IT00102030",
         "gradingData": {
-          "Assg 1 (20)": "15",
-          "Final (50)": "35",
-          "Final Grade": "B-",
-          "Midterm (30)": "20",
-          "Total Score": "70"
+          "Credits": "4",
+          "Final Grade": "A-"
         }
       },
       {
-        "candidateId": "IT22206282",
+        "candidateId": "IT00203040",
         "gradingData": {
-          "Assg 1 (20)": "19",
-          "Final (50)": "48",
-          "Final Grade": "A+",
-          "Midterm (30)": "28",
-          "Total Score": "95"
+          "Credits": "4",
+          "Final Grade": "B+"
         }
       },
       {
-        "candidateId": "IT22276346",
+        "candidateId": "IT00304050",
         "gradingData": {
-          "Assg 1 (20)": "12",
-          "Final (50)": "25",
-          "Final Grade": "C",
-          "Midterm (30)": "18",
-          "Total Score": "55"
+          "Credits": "4",
+          "Final Grade": "C+"
         }
       }
     ],
-    "moduleCode": "CS4020",
-    "uploader": "Dr. Nithika Perera"
+    "previousHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "blockHash": "a66519dd394af6eaf753115a669f77422b05948b7826efafe79e785f03647b88"
   },
   {
-    "provenanceHash": "d5ef0588969b7ca345f8edc1795843b4fcd7f8c11acec081549b459d6c98829d",
-    "extractedAt": "2026-06-16T09:05:30.784Z",
-    "recordCount": 2,
+    "timestamp": "2026-07-06T09:27:23.536Z",
+    "moduleCode": "CS3013",
+    "uploader": "Dr. Nithika Perera",
+    "isRecorrection": false,
+    "recordCount": 3,
+    "payloadHash": "e2ebdfa26b406ed4a1cb53b63ca5015936d08bae2878e4ee7d61e51d4e5e6eb0",
     "data": [
       {
         "candidateId": "IT22061348",
         "gradingData": {
-          "Appealed Grade": "A",
-          "BOE Approval": "APPROVED",
-          "Previous Grade": "A-"
+          "Assg 1": "18",
+          "Credits": "3",
+          "Final Marks": "42",
+          "Midterm": "25",
+          "Overall Grade": "A-"
         }
       },
       {
-        "candidateId": "IT22206282",
+        "candidateId": "IT00908070",
+        "gradingData": {
+          "Assg 1": "19",
+          "Credits": "3",
+          "Final Marks": "45",
+          "Midterm": "28",
+          "Overall Grade": "A"
+        }
+      },
+      {
+        "candidateId": "IT00807060",
+        "gradingData": {
+          "Assg 1": "17",
+          "Credits": "3",
+          "Final Marks": "38",
+          "Midterm": "22",
+          "Overall Grade": "B"
+        }
+      }
+    ],
+    "previousHash": "a66519dd394af6eaf753115a669f77422b05948b7826efafe79e785f03647b88",
+    "blockHash": "560b97b1ca76919f966e1c9b43903956d7eb5292fb33a17b2c58194862294238"
+  },
+  {
+    "timestamp": "2026-07-06T09:27:40.959Z",
+    "moduleCode": "SE4010",
+    "uploader": "Dr. Nithika Perera",
+    "isRecorrection": true,
+    "recordCount": 1,
+    "payloadHash": "ce32efc7e397a5d57265785a43b7431aee924e993cf489004fbac09302b8a423",
+    "data": [
+      {
+        "candidateId": "IT00304050",
         "gradingData": {
           "Appealed Grade": "B-",
-          "BOE Approval": "APPROVED",
+          "BOE Approval": "YES",
           "Previous Grade": "C+"
         }
       }
     ],
-    "moduleCode": "SE3010",
-    "uploader": "Dr. Nithika Perera"
+    "previousHash": "560b97b1ca76919f966e1c9b43903956d7eb5292fb33a17b2c58194862294238",
+    "blockHash": "ecec4e9898f58eb6dbd8ca931e36d8a5c0c5edd739ea24900ca8da57991ed554"
   }
 ]

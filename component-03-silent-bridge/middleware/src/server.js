@@ -6,7 +6,7 @@ const path = require('path');
 
 // Import our custom middleware engines
 const { parseExcelToJson } = require('./extraction/parser');
-const { generateProvenanceHash } = require('./hashing/hasher');
+const { appendToPrivateBlockchain } = require('./hashing/blockchain'); // 🚨 NEW: The Blockchain Engine
 const { pushToBOE } = require('./boe-handoff');
 
 const app = express();
@@ -18,7 +18,6 @@ app.use(express.json());
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-// Path to our simulated Private Ledger
 const ledgerPath = path.join(__dirname, '../../private_ledger/database.json');
 
 app.post('/api/ingest', upload.single('gradingSheet'), async (req, res) => {
@@ -31,60 +30,54 @@ app.post('/api/ingest', upload.single('gradingSheet'), async (req, res) => {
         console.log(`⚙️  2. Extracting and standardizing schema...`);
         const standardizedJson = parseExcelToJson(req.file.buffer);
 
-        // Grab the module code sent from the React frontend
+        // Grab metadata sent from React (Including the new Context Routing flag)
         const moduleCode = req.body.moduleCode || "UNKNOWN_MODULE";
         const uploaderName = req.body.uploader || "UNKNOWN_UPLOADER";
+        const isRecorrection = req.body.isRecorrection === 'true'; // Convert string to boolean
 
-        // --- STAGE 2: HASHING ---
-        console.log(`🔒 3. Generating SHA-256 Provenance Hash...`);
-        const sealedRecord = generateProvenanceHash(standardizedJson);
+        if (isRecorrection) {
+            console.log(`⚠️ Context Routing: Upload flagged as a formal Re-correction/Appeal.`);
+        }
 
-        // Attach the module code to the payload BEFORE saving it to the ledger
-        sealedRecord.moduleCode = moduleCode.toUpperCase();
-        sealedRecord.uploader = uploaderName;
+        // --- STAGE 2: PRIVATE BLOCKCHAIN ANCHORING ---
+        console.log(`🔒 3. Sealing into Private Blockchain Ledger...`);
+        const ledgerReceipt = appendToPrivateBlockchain(standardizedJson, moduleCode, uploaderName, isRecorrection);
 
-        // --- STAGE 3: STORAGE & DUPLICATE PREVENTION ---
-        console.log(`💾 4. Verifying Ledger Integrity...`);
-        
-        // Read the existing ledger
-        const rawLedger = fs.readFileSync(ledgerPath);
-        const ledger = JSON.parse(rawLedger);
-        
-        // Check if this EXACT cryptographic hash already exists in the ledger
-        const isDuplicate = ledger.some(block => block.provenanceHash === sealedRecord.provenanceHash);
-
-        if (isDuplicate) {
-            console.log(`⚠️ Duplicate Payload Detected. Hash already exists in ledger. Skipped saving.`);
-            return res.status(200).json({ 
+        if (ledgerReceipt.status === 'duplicate') {
+            console.log(`🛑 Duplicate Payload Detected. Hash already exists in ledger. Skipped saving.`);
+            return res.status(200).json({
                 message: 'Data already securely anchored in the Private Ledger.',
                 fileName: req.file.originalname,
-                moduleCode: sealedRecord.moduleCode,
-                uploader: sealedRecord.uploader,
-                recordCount: sealedRecord.recordCount,
-                provenanceHash: sealedRecord.provenanceHash,
+                moduleCode: moduleCode,
+                uploader: uploaderName,
+                provenanceHash: ledgerReceipt.blockHash,
                 status: 'duplicate'
             });
         }
 
-        // If it is NOT a duplicate, push it to the ledger and save
-        ledger.push(sealedRecord);
-        fs.writeFileSync(ledgerPath, JSON.stringify(ledger, null, 2));
+        console.log(`✅ Success! Block Hash: ${ledgerReceipt.blockHash}`);
+        console.log(`🔗 Cryptographically linked to Previous Hash: ${ledgerReceipt.previousHash}`);
 
-        console.log(`✅ Success! Provenance Hash: ${sealedRecord.provenanceHash}`);
+        // --- STAGE 3: OUTBOUND API PIPELINE (Handoff to BOE) ---
+        // We package the exact receipt data to send to Dilki's BOE layer
+        const uploadMetadata = {
+            provenanceHash: ledgerReceipt.blockHash,
+            moduleCode: moduleCode.toUpperCase(),
+            uploader: uploaderName,
+            isRecorrection: isRecorrection // Passes the flag to Component 2!
+        };
 
-        // --- STAGE 4: OUTBOUND API PIPELINE (Handoff to BOE) ---
-        // We pass the sealedRecord (which contains the metadata) and the raw standardizedJson
-        const handoffResult = await pushToBOE(sealedRecord, standardizedJson);
+        const handoffResult = await pushToBOE(uploadMetadata, standardizedJson);
 
-        res.status(200).json({ 
-            message: 'Extraction and Hashing successful!',
+        // Return final receipt to the React UI
+        res.status(200).json({
+            message: 'Extraction, Hashing, and Routing successful!',
             fileName: req.file.originalname,
-            moduleCode: sealedRecord.moduleCode,
-            uploader: sealedRecord.uploader,
-            recordCount: sealedRecord.recordCount,
-            provenanceHash: sealedRecord.provenanceHash,
+            moduleCode: moduleCode,
+            recordCount: standardizedJson.length,
+            provenanceHash: ledgerReceipt.blockHash,
             status: 'new',
-            syncStatus: handoffResult.status,       // 'synced' or 'queued'
+            syncStatus: handoffResult.status,
             syncMessage: handoffResult.message
         });
 
@@ -100,29 +93,33 @@ app.get('/api/verify/:studentId', (req, res) => {
         const studentId = req.params.studentId.toUpperCase();
         console.log(`\n🔍 Verification Query received for Candidate: ${studentId}`);
 
-        // 1. Open the Private Ledger
         const rawLedger = fs.readFileSync(ledgerPath);
         const ledger = JSON.parse(rawLedger);
 
-        let foundRecords = [];
+        // Use an object to store only the LATEST record per module
+        let latestRecordsMap = {};
 
-        // 2. Search through all sealed ledger blocks
         ledger.forEach(block => {
             const studentRecord = block.data.find(row => row.candidateId.toUpperCase() === studentId);
             if (studentRecord) {
-                foundRecords.push({
-                    moduleCode: block.moduleCode || "UNKNOWN_MODULE", 
+                // Because the ledger is chronological, this will naturally overwrite 
+                // older grades with the newer re-corrected grades for the same module!
+                latestRecordsMap[block.moduleCode] = {
+                    moduleCode: block.moduleCode || "UNKNOWN_MODULE",
                     uploader: block.uploader || "System",
                     gradingData: studentRecord.gradingData,
-                    provenanceHash: block.provenanceHash,
-                    sealedAt: block.extractedAt
-                });
+                    provenanceHash: block.blockHash,
+                    sealedAt: block.timestamp,
+                    isRecorrection: block.isRecorrection // Pass the flag to the UI
+                };
             }
         });
 
-        // 3. Return the verified results
+        // Convert the map back into an array for the frontend
+        const foundRecords = Object.values(latestRecordsMap);
+
         if (foundRecords.length > 0) {
-            console.log(`✅ Found ${foundRecords.length} verified records for ${studentId}`);
+            console.log(`✅ Found ${foundRecords.length} verified final state records for ${studentId}`);
             res.status(200).json({ success: true, records: foundRecords });
         } else {
             console.log(`❌ No records found for ${studentId}`);

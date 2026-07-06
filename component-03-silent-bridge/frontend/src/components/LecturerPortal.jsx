@@ -4,6 +4,7 @@ import axios from 'axios';
 import './LecturerPortal.css';
 
 const LecturerPortal = ({ user }) => {
+    const [isRecorrection, setIsRecorrection] = useState(false);
     const [selectedFile, setSelectedFile] = useState(null);
     const [uploadStatus, setUploadStatus] = useState('');
     const [receipt, setReceipt] = useState(null);
@@ -34,6 +35,7 @@ const LecturerPortal = ({ user }) => {
         formData.append('gradingSheet', selectedFile);
         formData.append('moduleCode', moduleCode);
         formData.append('uploader', user.name);
+        formData.append('isRecorrection', isRecorrection); // 🚨 NEW FLAG ADDED
 
         try {
             const response = await axios.post('http://localhost:5000/api/ingest', formData, {
@@ -41,7 +43,8 @@ const LecturerPortal = ({ user }) => {
             });
             setUploadStatus('success');
             setReceipt(response.data);
-            setModuleCode(''); // Clear input on success
+            setModuleCode('');
+            setIsRecorrection(false); // Reset toggle
         } catch (error) {
             console.error('Upload failed:', error);
             setUploadStatus('error');
@@ -56,7 +59,7 @@ const LecturerPortal = ({ user }) => {
                 <div className="portal-header">
                     <h2>Secure Data Ingestion</h2>
                     <p>
-                        Scale-ready academic records management. Upload your grading sheets to mathematically 
+                        Scale-ready academic records management. Upload your grading sheets to mathematically
                         seal records via the Silent Bridge decentralized middleware.
                     </p>
                 </div>
@@ -84,22 +87,36 @@ const LecturerPortal = ({ user }) => {
                         </div>
 
                         {/* FIXED: Module Input & Button Layout */}
-                        <div className="upload-actions">
-                            <input 
-                                type="text" 
-                                placeholder="Enter Module Code (e.g. SE301)" 
-                                value={moduleCode}
-                                onChange={(e) => setModuleCode(e.target.value.toUpperCase())}
-                                required
-                                className="module-input"
-                            />
-                            <button 
-                                className="upload-btn" 
-                                onClick={handleUpload}
-                                disabled={uploadStatus === 'uploading' || !moduleCode.trim()}
-                            >
-                                {uploadStatus === 'uploading' ? 'Sealing...' : 'Verify & Ledger Upload'}
-                            </button>
+                        <div className="upload-actions" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div style={{ display: 'flex', gap: '1rem', width: '100%' }}>
+                                <input
+                                    type="text"
+                                    placeholder="Enter Module Code (e.g. SE301)"
+                                    value={moduleCode}
+                                    onChange={(e) => setModuleCode(e.target.value.toUpperCase())}
+                                    required
+                                    className="module-input"
+                                    style={{ flex: 1 }}
+                                />
+                                <button
+                                    className="upload-btn"
+                                    onClick={handleUpload}
+                                    disabled={uploadStatus === 'uploading' || !moduleCode.trim()}
+                                >
+                                    {uploadStatus === 'uploading' ? 'Sealing...' : 'Verify & Ledger Upload'}
+                                </button>
+                            </div>
+
+                            {/* 🚨 NEW: Context-Aware Routing Toggle */}
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#aaa', fontSize: '0.9rem' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={isRecorrection}
+                                    onChange={(e) => setIsRecorrection(e.target.checked)}
+                                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                                />
+                                Flag this upload as a formal Re-correction / Grade Appeal
+                            </label>
                         </div>
                     </div>
                 )}
