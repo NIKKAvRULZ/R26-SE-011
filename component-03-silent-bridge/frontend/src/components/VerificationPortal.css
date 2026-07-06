@@ -211,3 +211,105 @@
   font-weight: 700;
   color: var(--text-primary);
 }
+
+.mode-toggle {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.mode-toggle button {
+  background: #333;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.mode-toggle button.active {
+  background: var(--accent-main);
+  color: #000;
+  font-weight: bold;
+}
+
+.transcript-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg-tertiary);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.transcript-table th,
+.transcript-table td {
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.grade-cell {
+  font-weight: bold;
+  color: var(--accent-main);
+}
+
+.badge.success {
+  background: #4ade8020;
+  color: #4ade80;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+}
+
+/* src/components/VerificationPortal.css */
+
+.vp-search {
+  display: flex;
+  gap: 1rem;
+  background: var(--bg-tertiary);
+  padding: 1.5rem;
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 2rem;
+  align-items: center;
+  /* This ensures vertical alignment */
+}
+
+.vp-search input {
+  flex: 1;
+  /* Makes all inputs share available space equally */
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 1rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  outline: none;
+  min-width: 0;
+  /* Prevents inputs from overflowing */
+}
+
+.vp-search button {
+  background: var(--accent-main);
+  color: #000;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  /* Prevents button text from wrapping */
+  height: 52px;
+  /* Matches input height */
+}
+
+/* Ensure the alert box aligns with the form width */
+.vp-alert {
+  margin-top: 1rem;
+  width: 100%;
+  max-width: 900px;
+  /* Or whatever width your form container is */
+  margin-left: auto;
+  margin-right: auto;
+}
