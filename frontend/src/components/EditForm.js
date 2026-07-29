@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import axios from "axios";
+import api from "../services/api";
 import "./EditForm.css";
 
 // ── Mirror the backend grade logic on the frontend ──────
@@ -30,7 +30,7 @@ function gradeClass(grade) {
   return "neutral";
 }
 
-function EditForm({ candidateData, boaUser, moduleCode, onSaveSuccess }) {
+function EditForm({ candidateData, moduleCode, onSaveSuccess }) {
   const [marks, setMarks]     = useState("");
   const [reason, setReason]   = useState("");
   const [message, setMessage] = useState("");
@@ -73,12 +73,10 @@ function EditForm({ candidateData, boaUser, moduleCode, onSaveSuccess }) {
     if (!validateForm()) return;
     try {
       setLoading(true);
-      const response = await axios.post("http://localhost:5000/api/edit", {
-        boaUser,
+      const response = await api.post("http://localhost:5000/api/edit", {
         moduleCode,
         candidateId: candidateData.candidateId,
         newMarks: Number(marks),
-        editedBy: boaUser,
         reason,
       });
       showMsg(response.data.message, "success");

@@ -1,45 +1,109 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
 import CandidateSearch from "../components/CandidateSearch";
+
+import { getDashboard } from "../services/dashboardService";
+import { logout } from "../utils/auth";
+
 import "./Dashboard.css";
 
 function Dashboard() {
-  const boaUser = "boaA";
-  const assignedModule = "SE3040";
+  const navigate = useNavigate();
+
+  const [dashboard, setDashboard] = useState(null);
+
+  const [selectedModule, setSelectedModule] = useState(null);
+
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadDashboard();
+  }, []);
+
+  const loadDashboard = async () => {
+    try {
+      const data = await getDashboard();
+
+      setDashboard(data);
+    } catch {
+      logout();
+
+      navigate("/login");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    logout();
+
+    navigate("/login");
+  };
+
+  if (loading) {
+    return <div className="dashboard-loading">Loading Dashboard...</div>;
+  }
 
   return (
     <div className="dashboard">
-      {/* ── Top Bar ───────────────────────── */}
-      <header className="dashboard__header">
-        <div className="dashboard__header-inner">
-          <div className="dashboard__brand">
-            <span className="dashboard__brand-mark">BOE</span>
-            <div>
-              <h1 className="dashboard__title">Result Revision Dashboard</h1>
-              <p className="dashboard__subtitle">
-                Board of Examiners · Academic Records System
-              </p>
-            </div>
-          </div>
+      <header className="dashboard-header">
+        <div>
+          <h1>Board of Examiners Dashboard</h1>
 
-          <div className="dashboard__meta">
-            <div className="dashboard__badge dashboard__badge--user">
-              <span className="dashboard__badge-label">Logged in as</span>
-              <span className="dashboard__badge-value">{boaUser}</span>
-            </div>
-            <div className="dashboard__badge dashboard__badge--module">
-              <span className="dashboard__badge-label">Assigned Module</span>
-              <span className="dashboard__badge-value">{assignedModule}</span>
-            </div>
-          </div>
+          <p>
+            Welcome,
+            <strong> {dashboard.username}</strong>
+          </p>
         </div>
 
-        <div className="dashboard__header-rule" />
+        <button className="logout-btn" onClick={handleLogout}>
+          Logout
+        </button>
       </header>
 
-      {/* ── Body ──────────────────────────── */}
-      <main className="dashboard__body">
-        <CandidateSearch boaUser={boaUser} moduleCode={assignedModule} />
-      </main>
+      {!selectedModule ? (
+        <>
+          <section className="dashboard-intro">
+            <h2>Your Assigned Modules</h2>
+
+            <p>
+              Select a module to begin reviewing and revising candidate results.
+            </p>
+          </section>
+
+          <div className="module-grid">
+            {dashboard.assignedModules.map((module) => (
+              <div
+                key={module}
+                className="module-card"
+                onClick={() => setSelectedModule(module)}
+              >
+                <h3>{module}</h3>
+
+                <p>Click to Manage Results</p>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="dashboard-toolbar">
+            <button
+              className="back-btn"
+              onClick={() => setSelectedModule(null)}
+            >
+              ← Back to Modules
+            </button>
+
+            <div className="current-module">
+              Module : <strong>{selectedModule}</strong>
+            </div>
+          </div>
+
+          <CandidateSearch moduleCode={selectedModule} />
+        </>
+      )}
     </div>
   );
 }

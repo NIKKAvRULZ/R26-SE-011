@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import axios from "axios";
+import api from "../services/api";
 import EditForm from "./EditForm";
 import AuditHistory from "./AuditHistory";
 import "./CandidateSearch.css";
 
-function CandidateSearch({ boaUser, moduleCode }) {
+function CandidateSearch({ moduleCode }) {
   const [candidateId, setCandidateId] = useState("");
   const [candidateData, setCandidateData] = useState(null);
   const [error, setError] = useState("");
@@ -15,8 +15,8 @@ function CandidateSearch({ boaUser, moduleCode }) {
     try {
       setLoading(true);
       setError("");
-      const response = await axios.get(
-        `http://localhost:5000/api/candidate/${id}`
+      const response = await api.get(
+        `http://localhost:5000/api/candidate/${id}`,
       );
       setCandidateData(response.data);
     } catch {
@@ -43,7 +43,6 @@ function CandidateSearch({ boaUser, moduleCode }) {
 
   return (
     <div className="cs-root">
-
       {/* ── Search Panel ───────────────────── */}
       <section className="cs-search-panel">
         <div className="cs-search-panel__header">
@@ -57,8 +56,16 @@ function CandidateSearch({ boaUser, moduleCode }) {
         <div className="cs-search-row">
           <div className="cs-input-wrap">
             <span className="cs-input-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <path d="M21 21l-4.35-4.35" />
               </svg>
             </span>
             <input
@@ -80,8 +87,16 @@ function CandidateSearch({ boaUser, moduleCode }) {
               <span className="cs-spinner" />
             ) : (
               <>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+                <svg
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="M21 21l-4.35-4.35" />
                 </svg>
                 Search
               </>
@@ -91,8 +106,16 @@ function CandidateSearch({ boaUser, moduleCode }) {
 
         {error && (
           <div className="cs-error">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 8v4M12 16h.01" />
             </svg>
             {error}
           </div>
@@ -102,7 +125,6 @@ function CandidateSearch({ boaUser, moduleCode }) {
       {/* ── Results ────────────────────────── */}
       {candidateData && (
         <div className="cs-results">
-
           {/* Candidate Detail Card */}
           <section className="cs-card cs-candidate-card">
             <div className="cs-card__header">
@@ -132,7 +154,9 @@ function CandidateSearch({ boaUser, moduleCode }) {
               </div>
               <div className="cs-detail-item">
                 <span className="cs-detail-label">Current Grade</span>
-                <span className={`cs-grade-badge cs-grade-badge--${gradeClass(candidateData.grade)}`}>
+                <span
+                  className={`cs-grade-badge cs-grade-badge--${gradeClass(candidateData.grade)}`}
+                >
                   {candidateData.grade}
                 </span>
               </div>
@@ -153,7 +177,6 @@ function CandidateSearch({ boaUser, moduleCode }) {
             </div>
             <EditForm
               candidateData={candidateData}
-              boaUser={boaUser}
               moduleCode={moduleCode}
               onSaveSuccess={handleSaveSuccess}
             />
@@ -167,7 +190,6 @@ function CandidateSearch({ boaUser, moduleCode }) {
             </div>
             <AuditHistory history={candidateData.history} />
           </section>
-
         </div>
       )}
     </div>
