@@ -7,11 +7,24 @@ const {
   getCandidateById,
   editResult,
 } = require("../controllers/resultController");
+const { authenticateUser } = require("../middleware/authMiddleware");
 
-router.get("/results/:moduleCode", getResultsByModule);
+const { authorizeBOA } = require("../middleware/roleMiddleware");
 
-router.get("/candidate/:candidateId", getCandidateById);
+router.get(
+  "/results/:moduleCode",
+  authenticateUser,
+  authorizeBOA,
+  getResultsByModule,
+);
 
-router.post("/edit", editResult);
+router.get(
+  "/candidate/:candidateId",
+  authenticateUser,
+  authorizeBOA,
+  getCandidateById,
+);
+
+router.post("/edit", authenticateUser, authorizeBOA, editResult);
 
 module.exports = router;

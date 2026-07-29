@@ -3,15 +3,6 @@ const crypto = require("crypto");
 const Result = require("../models/Result");
 
 // =======================================
-// MODULE ASSIGNMENTS
-// =======================================
-
-const boaUsers = {
-  boaA: "SE3040",
-  boaB: "SE3050",
-};
-
-// =======================================
 // AUTOMATIC GRADE GENERATION
 // =======================================
 
@@ -43,6 +34,12 @@ exports.getResultsByModule = async (req, res) => {
 
     const results = await Result.find({ moduleCode });
 
+    if (!req.user.assignedModules.includes(moduleCode)) {
+      return res.status(403).json({
+        message: "Access denied.",
+      });
+    }
+
     res.json(results);
   } catch (error) {
     console.log(error);
@@ -62,6 +59,12 @@ exports.getCandidateById = async (req, res) => {
     const candidateId = req.params.candidateId;
 
     const result = await Result.findOne({ candidateId });
+
+    if (!req.user.assignedModules.includes(result.moduleCode)) {
+      return res.status(403).json({
+        message: "Access denied.",
+      });
+    }
 
     if (!result) {
       return res.status(404).json({
@@ -84,21 +87,14 @@ exports.getCandidateById = async (req, res) => {
 // =======================================
 
 exports.editResult = async (req, res) => {
-  const { boaUser, moduleCode, candidateId, newMarks, editedBy, reason } =
-    req.body;
+  const { moduleCode, candidateId, newMarks, reason } = req.body;
 
   try {
     // =======================================
     // VALIDATION
     // =======================================
 
-    if (
-      !boaUser ||
-      !moduleCode ||
-      !candidateId ||
-      newMarks === undefined ||
-      !reason
-    ) {
+    if (!moduleCode || !candidateId || newMarks === undefined || !reason) {
       return res.status(400).json({
         message: "All fields are required",
       });
@@ -148,11 +144,11 @@ exports.editResult = async (req, res) => {
     // MODULE ACCESS CONTROL
     // =======================================
 
-    const allowedModule = boaUsers[boaUser];
+    const allowedModules = req.user.assignedModules;
 
-    if (allowedModule !== moduleCode) {
+    if (!allowedModules.includes(moduleCode)) {
       return res.status(403).json({
-        message: "Access denied for this module",
+        message: "You are not assigned to this module.",
       });
     }
 
@@ -175,7 +171,7 @@ exports.editResult = async (req, res) => {
       oldGrade: result.grade,
       newGrade: generatedGrade,
 
-      editedBy: editedBy || boaUser,
+      editedBy: req.user.username,
 
       reason,
 
