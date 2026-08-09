@@ -1,13 +1,15 @@
+// middleware/src/server.js
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 
-// Import our custom middleware engines
+// Import custom middleware engines & handoffs
 const { parseExcelToJson } = require('./extraction/parser');
-const { appendToPrivateBlockchain } = require('./hashing/blockchain'); // 🚨 NEW: The Blockchain Engine
+const { appendToPrivateBlockchain } = require('./hashing/blockchain');
 const { pushToBOE } = require('./boe-handoff');
+const { pushToComponent1 } = require('./comp1-handoff'); // 🚨 NEW: Component 1 Bypass Engine
 
 const app = express();
 const port = 5000;
@@ -30,14 +32,10 @@ app.post('/api/ingest', upload.single('gradingSheet'), async (req, res) => {
         console.log(`⚙️  2. Extracting and standardizing schema...`);
         const standardizedJson = parseExcelToJson(req.file.buffer);
 
-        // Grab metadata sent from React (Including the new Context Routing flag)
+        // Grab metadata sent from React
         const moduleCode = req.body.moduleCode || "UNKNOWN_MODULE";
         const uploaderName = req.body.uploader || "UNKNOWN_UPLOADER";
-        const isRecorrection = req.body.isRecorrection === 'true'; // Convert string to boolean
-
-        if (isRecorrection) {
-            console.log(`⚠️ Context Routing: Upload flagged as a formal Re-correction/Appeal.`);
-        }
+        const isRecorrection = req.body.isRecorrection === 'true';
 
         // --- STAGE 2: PRIVATE BLOCKCHAIN ANCHORING ---
         console.log(`🔒 3. Sealing into Private Blockchain Ledger...`);
@@ -58,20 +56,29 @@ app.post('/api/ingest', upload.single('gradingSheet'), async (req, res) => {
         console.log(`✅ Success! Block Hash: ${ledgerReceipt.blockHash}`);
         console.log(`🔗 Cryptographically linked to Previous Hash: ${ledgerReceipt.previousHash}`);
 
-        // --- STAGE 3: OUTBOUND API PIPELINE (Handoff to BOE) ---
-        // We package the exact receipt data to send to Dilki's BOE layer
+        // --- STAGE 3: CONTEXT-AWARE ROUTING (THE FORK IN THE ROAD) ---
         const uploadMetadata = {
             provenanceHash: ledgerReceipt.blockHash,
             moduleCode: moduleCode.toUpperCase(),
             uploader: uploaderName,
-            isRecorrection: isRecorrection // Passes the flag to Component 2!
+            isRecorrection: isRecorrection
         };
 
-        const handoffResult = await pushToBOE(uploadMetadata, standardizedJson);
+        let handoffResult;
+
+        if (isRecorrection) {
+            console.log(`⚠️ Context Routing: Upload flagged as Re-correction. Bypassing BOE...`);
+            // Route directly to Component 1 (Proof / Merkle Layer)
+            handoffResult = await pushToComponent1(uploadMetadata, standardizedJson);
+        } else {
+            console.log(`🚀 Standard Routing: Sending payload to BOE Layer (Component 2)...`);
+            // Route normally to Component 2
+            handoffResult = await pushToBOE(uploadMetadata, standardizedJson);
+        }
 
         // Return final receipt to the React UI
         res.status(200).json({
-            message: 'Extraction, Hashing, and Routing successful!',
+            message: isRecorrection ? 'Re-correction successfully bypassed BOE and routed to Proof Layer!' : 'Extraction, Hashing, and BOE Routing successful!',
             fileName: req.file.originalname,
             moduleCode: moduleCode,
             recordCount: standardizedJson.length,
@@ -96,26 +103,22 @@ app.get('/api/verify/:studentId', (req, res) => {
         const rawLedger = fs.readFileSync(ledgerPath);
         const ledger = JSON.parse(rawLedger);
 
-        // Use an object to store only the LATEST record per module
         let latestRecordsMap = {};
 
         ledger.forEach(block => {
             const studentRecord = block.data.find(row => row.candidateId.toUpperCase() === studentId);
             if (studentRecord) {
-                // Because the ledger is chronological, this will naturally overwrite 
-                // older grades with the newer re-corrected grades for the same module!
                 latestRecordsMap[block.moduleCode] = {
                     moduleCode: block.moduleCode || "UNKNOWN_MODULE",
                     uploader: block.uploader || "System",
                     gradingData: studentRecord.gradingData,
                     provenanceHash: block.blockHash,
                     sealedAt: block.timestamp,
-                    isRecorrection: block.isRecorrection // Pass the flag to the UI
+                    isRecorrection: block.isRecorrection
                 };
             }
         });
 
-        // Convert the map back into an array for the frontend
         const foundRecords = Object.values(latestRecordsMap);
 
         if (foundRecords.length > 0) {
