@@ -64,6 +64,28 @@ const resultSchema = new mongoose.Schema({
     required: true,
   },
 
+  gradingData: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {},
+  },
+
+  uploader: {
+    type: String,
+  },
+
+  provenanceHash: {
+    type: String,
+  },
+
+  payloadHash: {
+    type: String,
+  },
+
+  isRecorrection: {
+    type: Boolean,
+    default: false,
+  },
+
   hash: {
     type: String,
   },
