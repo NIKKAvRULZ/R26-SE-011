@@ -60,15 +60,15 @@ exports.getCandidateById = async (req, res) => {
 
     const result = await Result.findOne({ candidateId });
 
-    if (!req.user.assignedModules.includes(result.moduleCode)) {
-      return res.status(403).json({
-        message: "Access denied.",
-      });
-    }
-
     if (!result) {
       return res.status(404).json({
         message: "Candidate not found",
+      });
+    }
+
+    if (!req.user.assignedModules.includes(result.moduleCode)) {
+      return res.status(403).json({
+        message: "Access denied.",
       });
     }
 

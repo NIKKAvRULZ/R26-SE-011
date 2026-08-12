@@ -7,6 +7,7 @@ const resultRoutes = require("./routes/resultRoutes");
 const authRoutes = require("./routes/authRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const importRoutes = require("./routes/importRoutes");
+const exportRoutes = require("./routes/exportRoutes");
 
 dotenv.config();
 
@@ -21,6 +22,7 @@ app.use("/api", resultRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api", dashboardRoutes);
 app.use("/api", importRoutes);
+app.use("/api", exportRoutes);
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI)
