@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Login from './components/Login';
 import LecturerPortal from './components/LecturerPortal';
 import VerificationPortal from './components/VerificationPortal';
+import AdminPortal from './components/AdminPortal'; // 🚨 NEW IMPORT
 import './App.css';
 
 function App() {
@@ -35,7 +36,27 @@ function App() {
             <h3>Academic Staff</h3>
             <p>Secure SSO login for data ingestion and private ledger sealing.</p>
           </button>
+
+          {/* 🚨 NEW: Admin Gateway Button */}
+          <button className="gateway-card" onClick={() => setAppMode('admin')}>
+            <div className="gateway-icon">⚙️</div>
+            <h3>System Admin</h3>
+            <p>Configure dynamic policy rules and time-gate routing windows.</p>
+          </button>
         </div>
+      </div>
+    );
+  }
+
+  // 🚨 NEW: Admin Routing Block
+  if (appMode === 'admin') {
+    return (
+      <div className="portal-wrapper">
+        <nav className="top-nav">
+          <div className="nav-logo"><span>💠</span> Institutional Policy Admin</div>
+          <button onClick={() => setAppMode('landing')} className="nav-btn">← Return to Gateway</button>
+        </nav>
+        <AdminPortal />
       </div>
     );
   }
