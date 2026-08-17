@@ -128,8 +128,6 @@ const finalizeExpiredResults = async () => {
 
       await finalResult.save();
 
-      await finalResult.save();
-
       await Result.updateOne(
         {
           _id: result._id,
@@ -140,8 +138,6 @@ const finalizeExpiredResults = async () => {
           },
         },
       );
-
-      finalized++;
 
       finalized++;
 

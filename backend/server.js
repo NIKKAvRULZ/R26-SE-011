@@ -1,17 +1,19 @@
+const dotenv = require("dotenv");
+
+dotenv.config();
+
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
-const dotenv = require("dotenv");
 
 const resultRoutes = require("./routes/resultRoutes");
 const authRoutes = require("./routes/authRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const importRoutes = require("./routes/importRoutes");
 const exportRoutes = require("./routes/exportRoutes");
+const specialConcernRoutes = require("./routes/specialConcernRoutes");
 
 const { startFinalizationJob } = require("./jobs/finalizationJob");
-
-dotenv.config();
 
 const app = express();
 
@@ -25,6 +27,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api", dashboardRoutes);
 app.use("/api", importRoutes);
 app.use("/api", exportRoutes);
+app.use("/api", specialConcernRoutes);
 
 // MongoDB Connection
 mongoose
