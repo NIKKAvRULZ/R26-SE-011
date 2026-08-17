@@ -86,13 +86,14 @@ const resultSchema = new mongoose.Schema({
     default: false,
   },
 
-  hash: {
-    type: String,
-  },
-
   releaseDate: {
     type: Date,
     default: Date.now,
+  },
+
+  finalized: {
+    type: Boolean,
+    default: false,
   },
 
   version: {

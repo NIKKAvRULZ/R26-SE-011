@@ -9,6 +9,8 @@ const dashboardRoutes = require("./routes/dashboardRoutes");
 const importRoutes = require("./routes/importRoutes");
 const exportRoutes = require("./routes/exportRoutes");
 
+const { startFinalizationJob } = require("./jobs/finalizationJob");
+
 dotenv.config();
 
 const app = express();
@@ -25,9 +27,17 @@ app.use("/api", importRoutes);
 app.use("/api", exportRoutes);
 
 // MongoDB Connection
-mongoose.connect(process.env.MONGO_URI)
-.then(() => console.log("MongoDB Connected"))
-.catch(err => console.log(err));
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => {
+    console.log("MongoDB Connected");
+
+    // Start automatic finalization
+    startFinalizationJob();
+  })
+  .catch((err) => {
+    console.log(err);
+  });
 
 // Test Route
 app.get("/", (req, res) => {

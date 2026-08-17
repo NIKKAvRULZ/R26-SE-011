@@ -1,5 +1,3 @@
-const crypto = require("crypto");
-
 const Result = require("../models/Result");
 
 // =======================================
@@ -100,9 +98,11 @@ exports.editResult = async (req, res) => {
       });
     }
 
+    const normalizedModuleCode = moduleCode.trim().toUpperCase();
+
     const numericMarks = Number(newMarks);
 
-    if (numericMarks < 0 || numericMarks > 100) {
+    if (Number.isNaN(numericMarks) || numericMarks < 0 || numericMarks > 100) {
       return res.status(400).json({
         message: "Marks must be between 0 and 100",
       });
@@ -115,10 +115,25 @@ exports.editResult = async (req, res) => {
     }
 
     // =======================================
+    // MODULE ACCESS CONTROL
+    // =======================================
+
+    const allowedModules = req.user.assignedModules;
+
+    if (!allowedModules.includes(normalizedModuleCode)) {
+      return res.status(403).json({
+        message: "You are not assigned to this module.",
+      });
+    }
+
+    // =======================================
     // FIND RESULT
     // =======================================
 
-    let result = await Result.findOne({ candidateId });
+    const result = await Result.findOne({
+      candidateId,
+      moduleCode: normalizedModuleCode,
+    });
 
     if (!result) {
       return res.status(404).json({
@@ -132,23 +147,11 @@ exports.editResult = async (req, res) => {
 
     const deadline = new Date(result.releaseDate);
 
-    deadline.setDate(deadline.getDate() + 14);
+    deadline.setDate(deadline.getDate() + 7);
 
     if (new Date() > deadline) {
       return res.status(403).json({
         message: "Editing deadline has passed",
-      });
-    }
-
-    // =======================================
-    // MODULE ACCESS CONTROL
-    // =======================================
-
-    const allowedModules = req.user.assignedModules;
-
-    if (!allowedModules.includes(moduleCode)) {
-      return res.status(403).json({
-        message: "You are not assigned to this module.",
       });
     }
 
@@ -179,7 +182,7 @@ exports.editResult = async (req, res) => {
     });
 
     // =======================================
-    // UPDATE MAIN RECORD
+    // UPDATE RESULT
     // =======================================
 
     result.marks = numericMarks;
@@ -191,25 +194,6 @@ exports.editResult = async (req, res) => {
     // =======================================
 
     result.version += 1;
-
-    // =======================================
-    // HASH GENERATION
-    // =======================================
-
-    const hashData = `
-      ${candidateId}
-      ${moduleCode}
-      ${numericMarks}
-      ${generatedGrade}
-      ${result.version}
-    `;
-
-    const generatedHash = crypto
-      .createHash("sha256")
-      .update(hashData)
-      .digest("hex");
-
-    result.hash = generatedHash;
 
     // =======================================
     // SAVE
@@ -226,7 +210,7 @@ exports.editResult = async (req, res) => {
 
       generatedGrade,
 
-      generatedHash,
+      version: result.version,
 
       result,
     });
