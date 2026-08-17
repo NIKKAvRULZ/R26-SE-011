@@ -14,6 +14,7 @@ const exportRoutes = require("./routes/exportRoutes");
 const specialConcernRoutes = require("./routes/specialConcernRoutes");
 
 const { startFinalizationJob } = require("./jobs/finalizationJob");
+const { startBlockchainJob } = require("./jobs/blockchainJob");
 
 const app = express();
 
@@ -37,6 +38,7 @@ mongoose
 
     // Start automatic finalization
     startFinalizationJob();
+    startBlockchainJob();
   })
   .catch((err) => {
     console.log(err);
