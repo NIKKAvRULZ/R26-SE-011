@@ -4,7 +4,7 @@
   "description": "Backend services for the ZKP-based grade verification security layer",
   "main": "src/api-server.js",
   "scripts": {
-    "start": "node src/api-server.js",
+    "start": "node src/api-server-clean.js",
     "listen": "node src/event-listener.js",
     "test": "mocha --timeout 60000 ../test/**/*.test.js"
   },

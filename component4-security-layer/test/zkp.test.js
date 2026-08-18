@@ -42,9 +42,12 @@ describe("ZKP — proof-generator", function () {
   });
 
   it("throws for a grade value outside [0, 5]", async function () {
-    await expect(
-      generateProof({ gradeValue: 6 })
-    ).to.be.rejectedWith(RangeError);
+    try {
+      await generateProof({ gradeValue: 6 });
+      throw new Error("Expected generateProof to reject for an out-of-range grade");
+    } catch (error) {
+      expect(error).to.be.instanceOf(RangeError);
+    }
   });
 
   it("exports valid Solidity calldata", async function () {

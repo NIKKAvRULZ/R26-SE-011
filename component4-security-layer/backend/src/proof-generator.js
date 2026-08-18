@@ -8,8 +8,7 @@
 
 const snarkjs = require("snarkjs");
 const { buildPoseidon } = require("circomlibjs");
-const path = require("path");
-const fs = require("fs");
+const path = require("node:path");
 
 const WASM_PATH = path.resolve(
   __dirname,
@@ -22,6 +21,23 @@ const ZKEY_PATH = path.resolve(
 
 // Grade letter to numeric value mapping (must match circuit)
 const GRADE_MAP = { 0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, F: 0, D: 1, C: 2, B: 3, A: 4, "A+": 5 };
+
+function gradeToNumeric(gradeValue) {
+  if (gradeValue === undefined || gradeValue === null) {
+    return undefined;
+  }
+
+  if (typeof gradeValue === "number" && Number.isInteger(gradeValue)) {
+    return gradeValue;
+  }
+
+  const normalized = String(gradeValue).trim().toUpperCase();
+  if (/^[0-5]$/.test(normalized)) {
+    return Number(normalized);
+  }
+
+  return GRADE_MAP[normalized];
+}
 
 /**
  * Computes a Poseidon commitment for a grade value.
@@ -48,9 +64,7 @@ async function computeCommitment(gradeValue) {
  */
 async function generateProof({ gradeValue }) {
   // Accept letter grades as well as numeric
-  const numericGrade = typeof gradeValue === 'string' && isNaN(gradeValue)
-    ? GRADE_MAP[gradeValue.toUpperCase()]
-    : Number(gradeValue);
+  const numericGrade = gradeToNumeric(gradeValue);
 
   if (numericGrade === undefined || numericGrade < 0 || numericGrade > 5) {
     throw new RangeError(`gradeValue must be 0-5 or F/D/C/B/A/A+, got ${gradeValue}`);
@@ -87,4 +101,4 @@ async function exportSolidityCalldata(proof, publicSignals) {
   return calldata;
 }
 
-module.exports = { generateProof, exportSolidityCalldata, computeCommitment };
+module.exports = { generateProof, exportSolidityCalldata, computeCommitment, gradeToNumeric, GRADE_MAP };

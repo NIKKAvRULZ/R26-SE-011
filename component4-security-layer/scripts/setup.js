@@ -16,25 +16,33 @@
  *   node scripts/setup.js
  */
 
-const { execSync }        = require("child_process");
+const { execSync }        = require("node:child_process");
 const snarkjs             = require("snarkjs");
 const { getCurveFromName }= require("ffjavascript");
-const path                = require("path");
-const fs                  = require("fs");
+const path                = require("node:path");
+const fs                  = require("node:fs");
 
 // ── Paths ────────────────────────────────────────────────────────────────
-const ROOT         = path.resolve(__dirname, "..");
-const BUILD_DIR    = path.join(ROOT, "build");
-const CIRCUIT_FILE = path.join(ROOT, "circuits", "gradeVerifier.circom");
+const ROOT = path.resolve(__dirname, "..");
+const BUILD_DIR = path.join(ROOT, "build");
 const NODE_MODULES = path.join(ROOT, "node_modules");
 
-const PTAU_0       = path.join(BUILD_DIR, "pot12_0000.ptau");
-const PTAU_1       = path.join(BUILD_DIR, "pot12_0001.ptau");
-const PTAU_FINAL   = path.join(BUILD_DIR, "pot12_final.ptau");
-const R1CS         = path.join(BUILD_DIR, "gradeVerifier.r1cs");
-const ZKEY_0       = path.join(BUILD_DIR, "gradeVerifier_0000.zkey");
-const ZKEY_FINAL   = path.join(BUILD_DIR, "gradeVerifier_final.zkey");
-const VK_PATH      = path.join(BUILD_DIR, "verification_key.json");
+const CIRCUITS = [
+  {
+    name: "gradeVerifier",
+    file: path.join(ROOT, "circuits", "gradeVerifier.circom"),
+    verificationKey: path.join(BUILD_DIR, "verification_key.json"),
+  },
+  {
+    name: "loginVerifier",
+    file: path.join(ROOT, "circuits", "loginVerifier.circom"),
+    verificationKey: path.join(BUILD_DIR, "loginVerifier_verification_key.json"),
+  },
+];
+
+const PTAU_0 = path.join(BUILD_DIR, "pot12_0000.ptau");
+const PTAU_1 = path.join(BUILD_DIR, "pot12_0001.ptau");
+const PTAU_FINAL = path.join(BUILD_DIR, "pot12_final.ptau");
 
 // ── Find the circom binary ────────────────────────────────────────────────
 function findCircom() {
@@ -67,14 +75,16 @@ async function main() {
 
   fs.mkdirSync(BUILD_DIR, { recursive: true });
 
-  // ── Step 1: Compile circuit ─────────────────────────────────────────
-  console.log("[ 1 / 5 ]  Compiling gradeVerifier.circom ...");
+  // ── Step 1: Compile circuits ────────────────────────────────────────
   const circom = findCircom();
-  execSync(
-    `"${circom}" "${CIRCUIT_FILE}" --r1cs --wasm --sym -l "${NODE_MODULES}" -o "${BUILD_DIR}"`,
-    { stdio: "inherit" }
-  );
-  console.log("           ✓ Circuit compiled  →  build/gradeVerifier.r1cs\n");
+  for (const circuit of CIRCUITS) {
+    console.log(`[ 1 / 5 ]  Compiling ${circuit.name}.circom ...`);
+    execSync(
+      `"${circom}" "${circuit.file}" --r1cs --wasm --sym -l "${NODE_MODULES}" -o "${BUILD_DIR}"`,
+      { stdio: "inherit" }
+    );
+    console.log(`           ✓ Circuit compiled  →  build/${circuit.name}.r1cs\n`);
+  }
 
   // ── Step 2: Powers of Tau (Phase 1) ─────────────────────────────────
   console.log("[ 2 / 5 ]  Generating Powers of Tau  (BN128, 2^12 constraints) ...");
@@ -89,34 +99,40 @@ async function main() {
   await curve.terminate();
   console.log("           ✓ Powers of Tau ready  →  build/pot12_final.ptau\n");
 
-  // ── Step 3: Groth16 Phase 2 setup ───────────────────────────────────
-  console.log("[ 3 / 5 ]  Groth16 Phase 2 setup ...");
-  await snarkjs.zKey.newZKey(R1CS, PTAU_FINAL, ZKEY_0);
-  console.log("           ✓ Initial zkey  →  build/gradeVerifier_0000.zkey\n");
+  // ── Step 3-5: Groth16 setup for each circuit ───────────────────────
+  for (const circuit of CIRCUITS) {
+    const r1csPath = path.join(BUILD_DIR, `${circuit.name}.r1cs`);
+    const zkey0Path = path.join(BUILD_DIR, `${circuit.name}_0000.zkey`);
+    const zkeyFinalPath = path.join(BUILD_DIR, `${circuit.name}_final.zkey`);
 
-  // ── Step 4: Contribute entropy ──────────────────────────────────────
-  console.log("[ 4 / 5 ]  Contributing entropy to zkey ...");
-  await snarkjs.zKey.contribute(
-    ZKEY_0, ZKEY_FINAL,
-    "Susara Perera SLIIT",
-    "second-entropy-contribution-2026-SLIIT-RP"
-  );
-  console.log("           ✓ Final zkey  →  build/gradeVerifier_final.zkey\n");
+    console.log(`[ 3 / 5 ]  Groth16 setup for ${circuit.name} ...`);
+    await snarkjs.zKey.newZKey(r1csPath, PTAU_FINAL, zkey0Path);
+    console.log(`           ✓ Initial zkey  →  build/${circuit.name}_0000.zkey\n`);
 
-  // ── Step 5: Export verification key ─────────────────────────────────
-  console.log("[ 5 / 5 ]  Exporting verification key ...");
-  const vk = await snarkjs.zKey.exportVerificationKey(ZKEY_FINAL);
-  fs.writeFileSync(VK_PATH, JSON.stringify(vk, null, 2));
-  console.log("           ✓ Verification key  →  build/verification_key.json\n");
+    console.log(`[ 4 / 5 ]  Contributing entropy to ${circuit.name} ...`);
+    await snarkjs.zKey.contribute(
+      zkey0Path, zkeyFinalPath,
+      "Susara Perera SLIIT",
+      `second-entropy-contribution-2026-SLIIT-RP-${circuit.name}`
+    );
+    console.log(`           ✓ Final zkey  →  build/${circuit.name}_final.zkey\n`);
+
+    console.log(`[ 5 / 5 ]  Exporting ${circuit.name} verification key ...`);
+    const vk = await snarkjs.zKey.exportVerificationKey(zkeyFinalPath);
+    fs.writeFileSync(circuit.verificationKey, JSON.stringify(vk, null, 2));
+    console.log(`           ✓ Verification key  →  ${path.relative(ROOT, circuit.verificationKey)}\n`);
+  }
 
   // ── Summary ──────────────────────────────────────────────────────────
   console.log("══════════════════════════════════════════════════════════");
   console.log("  ✅  Setup complete!  Artifacts generated in build/");
   console.log();
-  console.log("     build/gradeVerifier.r1cs              circuit constraints");
-  console.log("     build/gradeVerifier_js/*.wasm          witness generator");
-  console.log("     build/gradeVerifier_final.zkey         proving key");
-  console.log("     build/verification_key.json            verifying key");
+  console.log("     build/gradeVerifier.r1cs              grade circuit constraints");
+  console.log("     build/loginVerifier.r1cs              login circuit constraints");
+  console.log("     build/*_js/*.wasm                      witness generators");
+  console.log("     build/*_final.zkey                    proving keys");
+  console.log("     build/verification_key.json            grade verifying key");
+  console.log("     build/loginVerifier_verification_key.json  login verifying key");
   console.log();
   console.log("  Next steps:");
   console.log("     npm run generate    →  generate ZKP proof from grade");
