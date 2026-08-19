@@ -3,45 +3,56 @@ const axios = require("axios");
 const COMPONENT_1_URL = process.env.COMPONENT_1_URL;
 
 // =======================================
-// SEND HASH TO COMPONENT 1
+// SEND FINAL RESULTS TO COMPONENT 1
 // =======================================
 
-const sendHashToComponent1 = async ({ candidateId, hash }) => {
+const sendResultsToComponent1 = async (records) => {
   if (!COMPONENT_1_URL) {
     throw new Error("COMPONENT_1_URL is not configured.");
   }
 
-  if (!candidateId || !hash) {
-    throw new Error("candidateId and hash are required.");
+  if (!Array.isArray(records) || records.length === 0) {
+    throw new Error("At least one result record is required.");
   }
 
   const endpoint = `${COMPONENT_1_URL}/blockchain/storeHash`;
 
+  // =======================================
+  // PREPARE PAYLOAD
+  // =======================================
+
+  const payload = {
+    records: records.map((result) => ({
+      candidateId: result.candidateId,
+      moduleCode: result.moduleCode,
+      marks: result.marks,
+      grade: result.grade,
+      version: result.version,
+      hash: result.hash,
+    })),
+  };
+
   console.log("\n=======================================");
-  console.log("🔗 SENDING HASH TO COMPONENT 1");
+  console.log("🔗 SENDING FINAL RESULTS TO COMPONENT 1");
   console.log("=======================================");
-  console.log("Candidate ID:", candidateId);
-  console.log("Hash:", hash);
   console.log("Endpoint:", endpoint);
+  console.log("Records:", JSON.stringify(payload, null, 2));
   console.log("=======================================\n");
 
-  const response = await axios.post(
-    endpoint,
-    {
-      candidateId,
-      hash,
-    },
-    {
-      timeout: 5000,
-    },
-  );
+  // =======================================
+  // SEND REQUEST
+  // =======================================
 
-  console.log("✅ Component 1 accepted hash.");
+  const response = await axios.post(endpoint, payload, {
+    timeout: 5000,
+  });
+
+  console.log("✅ Component 1 accepted final results.");
   console.log("Response:", response.data);
 
   return response.data;
 };
 
 module.exports = {
-  sendHashToComponent1,
+  sendResultsToComponent1,
 };

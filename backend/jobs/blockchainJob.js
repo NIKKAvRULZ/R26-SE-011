@@ -1,18 +1,17 @@
 const cron = require("node-cron");
 
 const FinalResult = require("../models/FinalResult");
-const { sendHashToComponent1 } = require("../services/blockchainService");
+const { sendResultsToComponent1 } = require("../services/blockchainService");
 
-// =======================================
+
 // AUTOMATIC BLOCKCHAIN JOB
-// =======================================
 //
 // Checks FinalResult records whose
-// 7-day final holding period has expired.
+// final 7-day holding period has expired.
 //
-// Those hashes are sent to Component 1.
-//
-// =======================================
+// Eligible finalized results are sent to
+// Component 1 as a batch.
+
 
 const startBlockchainJob = () => {
   // Run once when server starts
@@ -38,6 +37,10 @@ const runBlockchainSync = async () => {
 
     const now = new Date();
 
+    // =======================================
+    // FIND ELIGIBLE FINAL RESULTS
+    // =======================================
+
     const eligibleResults = await FinalResult.find({
       blockchainEligibleAt: {
         $lte: now,
@@ -58,65 +61,70 @@ const runBlockchainSync = async () => {
       `🔗 Found ${eligibleResults.length} blockchain-eligible result(s).`,
     );
 
-    let stored = 0;
-    let failed = 0;
+    // =======================================
+    // MARK RESULTS AS READY
+    // =======================================
 
     for (const result of eligibleResults) {
-      try {
-        // =======================================
-        // MARK AS READY
-        // =======================================
-
-        if (result.blockchainStatus === "PENDING") {
-          result.blockchainStatus = "READY";
-
-          await result.save();
-        }
-
-        // =======================================
-        // SEND TO COMPONENT 1
-        // =======================================
-
-        await sendHashToComponent1({
-          candidateId: result.candidateId,
-          hash: result.hash,
-        });
-
-        // =======================================
-        // MARK AS STORED
-        // =======================================
-
-        result.blockchainStatus = "STORED";
-
-        result.blockchainStoredAt = new Date();
-
-        await result.save();
-
-        stored++;
-
-        console.log(
-          `✅ Blockchain hash stored: ${result.candidateId} - ${result.moduleCode}`,
-        );
-      } catch (error) {
-        failed++;
-
-        console.error(
-          `❌ Failed to store hash for ${result.candidateId}:`,
-          error.message,
-        );
-
-        // Keep it READY so the next job can retry.
+      if (result.blockchainStatus === "PENDING") {
         result.blockchainStatus = "READY";
 
         await result.save();
       }
     }
 
+    // =======================================
+    // SEND BATCH TO COMPONENT 1
+    // =======================================
+
+    try {
+      await sendResultsToComponent1(eligibleResults);
+
+      // =======================================
+      // MARK ALL AS STORED
+      // =======================================
+
+      for (const result of eligibleResults) {
+        result.blockchainStatus = "STORED";
+
+        result.blockchainStoredAt = new Date();
+
+        await result.save();
+      }
+
+      console.log(
+        `✅ Successfully sent ${eligibleResults.length} result(s) to Component 1.`,
+      );
+    } catch (error) {
+      // =======================================
+      // BATCH SEND FAILED
+      // =======================================
+
+      console.error("❌ Failed to send results to Component 1:", error.message);
+
+      // Keep records as READY.
+      // The next scheduled job will retry them.
+
+      for (const result of eligibleResults) {
+        result.blockchainStatus = "READY";
+
+        await result.save();
+      }
+
+      console.log("🔄 Results remain READY and will be retried.");
+
+      return;
+    }
+
+    // =======================================
+    // SUMMARY
+    // =======================================
+
     console.log("\n=======================================");
     console.log("📊 BLOCKCHAIN SYNC SUMMARY");
     console.log("=======================================");
-    console.log("Successfully stored:", stored);
-    console.log("Failed:", failed);
+    console.log("Successfully sent:", eligibleResults.length);
+    console.log("Failed:", 0);
     console.log("=======================================\n");
   } catch (error) {
     console.error("❌ Blockchain synchronization failed:", error);
