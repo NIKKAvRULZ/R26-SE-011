@@ -1,3 +1,4 @@
+const { checkModuleAccess } = require("../services/moduleAccessService");
 const Result = require("../models/Result");
 
 // =======================================
@@ -28,19 +29,37 @@ const calculateGrade = (marks) => {
 
 exports.getResultsByModule = async (req, res) => {
   try {
-    const moduleCode = req.params.moduleCode;
+    const moduleCode = req.params.moduleCode.trim().toUpperCase();
 
-    const results = await Result.find({ moduleCode });
-
+    // MODULE ASSIGNMENT CHECK
     if (!req.user.assignedModules.includes(moduleCode)) {
       return res.status(403).json({
         message: "Access denied.",
       });
     }
 
+    // MODULE REVIEW STATUS
+    const access = await checkModuleAccess(moduleCode);
+
+    if (!access.allowed) {
+      return res.status(403).json({
+        message: "BOE review period for this module has ended.",
+        status: access.status.status,
+      });
+    }
+
+    // GET RESULTS
+    const results = await Result.find({
+      moduleCode,
+      isRecorrection: false,
+      finalized: false,
+    }).sort({
+      candidateId: 1,
+    });
+
     res.json(results);
   } catch (error) {
-    console.log(error);
+    console.error("❌ Get results by module error:", error);
 
     res.status(500).json({
       error: "Server error",
@@ -56,7 +75,10 @@ exports.getCandidateById = async (req, res) => {
   try {
     const candidateId = req.params.candidateId;
 
-    const result = await Result.findOne({ candidateId });
+    const result = await Result.findOne({
+      candidateId,
+      isRecorrection: false,
+    });
 
     if (!result) {
       return res.status(404).json({
@@ -64,15 +86,26 @@ exports.getCandidateById = async (req, res) => {
       });
     }
 
+    // MODULE ASSIGNMENT CHECK
     if (!req.user.assignedModules.includes(result.moduleCode)) {
       return res.status(403).json({
         message: "Access denied.",
       });
     }
 
+    // MODULE REVIEW STATUS CHECK
+    const access = await checkModuleAccess(result.moduleCode);
+
+    if (!access.allowed) {
+      return res.status(403).json({
+        message: "BOE review period for this module has ended.",
+        status: access.status.status,
+      });
+    }
+
     res.json(result);
   } catch (error) {
-    console.log(error);
+    console.error("❌ Get candidate error:", error);
 
     res.status(500).json({
       error: "Server error",
@@ -88,10 +121,7 @@ exports.editResult = async (req, res) => {
   const { moduleCode, candidateId, newMarks, reason } = req.body;
 
   try {
-    // =======================================
     // VALIDATION
-    // =======================================
-
     if (!moduleCode || !candidateId || newMarks === undefined || !reason) {
       return res.status(400).json({
         message: "All fields are required",
@@ -114,10 +144,7 @@ exports.editResult = async (req, res) => {
       });
     }
 
-    // =======================================
     // MODULE ACCESS CONTROL
-    // =======================================
-
     const allowedModules = req.user.assignedModules;
 
     if (!allowedModules.includes(normalizedModuleCode)) {
@@ -126,10 +153,7 @@ exports.editResult = async (req, res) => {
       });
     }
 
-    // =======================================
     // FIND RESULT
-    // =======================================
-
     const result = await Result.findOne({
       candidateId,
       moduleCode: normalizedModuleCode,
@@ -141,30 +165,20 @@ exports.editResult = async (req, res) => {
       });
     }
 
-    // =======================================
-    // DEADLINE LOCK
-    // =======================================
+    // MODULE REVIEW STATUS CHECK
+    const access = await checkModuleAccess(normalizedModuleCode);
 
-    const deadline = new Date(result.releaseDate);
-
-    deadline.setDate(deadline.getDate() + 7);
-
-    if (new Date() > deadline) {
+    if (!access.allowed) {
       return res.status(403).json({
-        message: "Editing deadline has passed",
+        message: "BOE review period for this module has ended.",
+        status: access.status.status,
       });
     }
 
-    // =======================================
     // AUTO GRADE
-    // =======================================
-
     const generatedGrade = calculateGrade(numericMarks);
 
-    // =======================================
     // SAVE HISTORY
-    // =======================================
-
     result.history.push({
       version: result.version,
 
@@ -181,30 +195,17 @@ exports.editResult = async (req, res) => {
       editedAt: new Date(),
     });
 
-    // =======================================
     // UPDATE RESULT
-    // =======================================
-
     result.marks = numericMarks;
-
     result.grade = generatedGrade;
 
-    // =======================================
     // VERSION INCREMENT
-    // =======================================
-
     result.version += 1;
 
-    // =======================================
     // SAVE
-    // =======================================
-
     await result.save();
 
-    // =======================================
     // RESPONSE
-    // =======================================
-
     res.json({
       message: "Result updated successfully",
 

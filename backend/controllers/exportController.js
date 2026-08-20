@@ -1,3 +1,4 @@
+const { checkModuleAccess } = require("../services/moduleAccessService");
 const XLSX = require("xlsx");
 const Result = require("../models/Result");
 
@@ -18,6 +19,19 @@ exports.exportResultsByModule = async (req, res) => {
     if (!req.user.assignedModules.includes(moduleCode)) {
       return res.status(403).json({
         message: "You are not assigned to this module.",
+      });
+    }
+
+    // =======================================
+    // MODULE REVIEW STATUS
+    // =======================================
+
+    const access = await checkModuleAccess(moduleCode);
+
+    if (!access.allowed) {
+      return res.status(403).json({
+        message: "BOE review period for this module has ended.",
+        status: access.status.status,
       });
     }
 

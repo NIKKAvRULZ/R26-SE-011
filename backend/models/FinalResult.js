@@ -106,7 +106,7 @@ const finalResultSchema = new mongoose.Schema(
     // BLOCKCHAIN STATUS
     blockchainStatus: {
       type: String,
-      enum: ["PENDING", "READY", "SENT", "STORED"],
+      enum: ["PENDING", "READY", "STORED"],
       default: "PENDING",
     },
 
