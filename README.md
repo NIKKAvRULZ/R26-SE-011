@@ -19,35 +19,35 @@
 
 ## 🎯 The Real-World Problem
 
-The problem is **NOT** that "lecturers are changing marks." 
+The problem is **NOT** just that "lecturers might alter marks." 
 
-The *real problem* is:
-> **Students can fake or modify result sheets when applying for jobs or higher studies, and employers currently have no easy way to verify whether the submitted academic results are genuine.**
+The *real core challenges* span across transcript trust, institutional compliance, and review workflow vulnerabilities:
+> **Students can easily fake, edit, or forge academic result sheets when applying for employment or higher education, while employers and verification bodies lack a tamper-proof, decentralized mechanism to independently authenticate academic achievements.**
 
 ### Current Limitations:
-- ❌ Traditional university systems are centralized.
-- ❌ Verification depends fully on university databases.
-- ❌ Employers must manually contact universities for confirmation.
-- ❌ Fake transcripts and edited PDFs are increasing.
-- ❌ There is no cryptographic proof for academic records.
+- ❌ **Centralized Vulnerabilities**: Traditional university grading records reside in closed databases vulnerable to unauthorized internal alterations or single points of failure.
+- ❌ **Lack of Cryptographic Proof**: Verifying paper transcripts or digital PDFs relies entirely on manual phone calls or institutional email follow-ups.
+- ❌ **Unregulated Review Windows**: Traditional systems lack automated, time-locked institutional boundaries to safely govern standard grading uploads versus formal grade appeals and Board of Examiners (BOE) reviews.
+- ❌ **Transcript Fraud & Document Forgeries**: The widespread availability of PDF editing tools enables fraudulent grade inflations that bypass legacy verification workflows.
+- ❌ **Schema Rigidity**: Academic departments utilize heterogeneous grading formats (Excel/CSV layouts with varying rubrics), preventing seamless, automated processing.
 
 ---
 
 ## ✅ Our Main Solution
 
-We are building a **Blockchain-based academic grading verification system** that allows:
-- **Universities** to securely process results.
-- **Employers/Students** to verify authenticity independently.
-- **Academic records** to become tamper-resistant.
-- **Verification** without trusting PDFs/screenshots.
+We engineered **Silent Bridge**, a multi-phase, blockchain-anchored academic verification middleware and portal architecture that introduces:
+- **Autonomous Time-Gate Enforcement**: Dynamic institutional policy windows that automatically lock or unlock academic portals based on decentralized phase intervals.
+- **Context-Aware Routing**: Intelligent workflow branching that separates standard lecturer submissions from formal re-corrections and grade appeals.
+- **Cryptographic Provenance Ingestion**: Schema-agnostic file parsing, duplicate payload rejection (idempotency control), and PDPA-compliant data masking (stripping PII while anchoring verifiable scores).
+- **Independent Third-Party Verification**: Allowing employers and verification authorities to mathematically authenticate candidate transcripts via IPFS and zero-knowledge proofs without trusting vulnerable PDF screenshots.
 
 ### 🛠 Technologies Used
-- **SHA-256 Hashing**: For data integrity.
-- **Merkle Trees**: For dataset compilation and proof.
-- **Private Offline Blockchain**: For temporary internal institutional records.
-- **IPFS (Pinata)**: Decentralized storage for finalized datasets.
-- **Ethereum Blockchain**: For immutable anchoring of proofs.
-- **Zero-Knowledge Proofs (ZKP)**: For privacy-preserving verification.
+- **SHA-256 Hashing & Private Ledger (`database.json`)**: For cryptographically linked, append-only local block anchoring and duplicate payload interception.
+- **SheetJS (`xlsx`)**: For schema-agnostic extraction and parsing of heterogeneous LMS Excel/CSV grading sheets.
+- **Dynamic Institutional Policy Engine (`system-config.json`)**: Configurable governance engine supporting flexible time units (Days for production, Minutes for live demo testing).
+- **Merkle Trees & IPFS (Pinata)**: For hierarchical dataset compilation and decentralized storage of finalized academic records.
+- **Ethereum Blockchain**: For immutable anchoring of system proofs and Merkle roots.
+- **React.js, Vite & Tailwind/CSS**: For modern, highly responsive lecturer, administrator, and corporate verification portals featuring live ticking clocks and timezone-localized timeline scanners.
 
 ---
 
@@ -55,20 +55,56 @@ We are building a **Blockchain-based academic grading verification system** that
 
 ```mermaid
 graph TD
-    A[👨‍🏫 Lecturer Uploads Results] -->|Component 3| B(Extracts & Standardizes Data)
-    B -->|Component 2| C{BOE Reviews/Corrects Results}
-    C --> D[Creates Hash per Student]
-    D --> E[(Stored in Private Offline Chain)]
-    E -->|After Finalization Window| F[Component 1]
-    F --> G[Builds Merkle Tree]
-    G --> H[(Merkle Root + Final Dataset stored in IPFS)]
-    H --> I[CID + Merkle Root Anchored on Ethereum Blockchain]
-    I -->|Component 4| J{Employer Verifies Records}
-    J -->|Valid| K[✅ VALID]
-    J -->|Invalid| L[❌ INVALID]
+    %% Component 3 Flow
+    A[👨‍🏫 Lecturer Uploads Results] -->|Component 3: Silent Bridge| B[Dynamic Policy Engine & Time-Gate Check]
+    B -->|Check Ledger database.json| C{Policy Phase Window?}
     
+    C -->|Phase 2: BOE Active / Phase 4: Finalized| D[🛑 403 Forbidden: Upload Locked]
+    C -->|Phase 1: Standard Window| E[Schema-Agnostic Extraction & PII Stripping]
+    C -->|Phase 3: Appeals Window & Flagged| E
+    
+    E --> F[(Private SHA-256 Ledger: database.json)]
+    
+    %% Context-Aware Routing Fork
+    F -->|Standard Upload| G[🚀 Standard Path: Hand off to Component 2 BOE]
+    F -->|Special Concern / Appeal| H[🚨 Direct Bypass: Hand off directly to Live DB]
+
+    %% Component 2 Flow
+    G --> I[🧩 Component 2: BOE Moderation & Version Audit]
+    H --> I
+    I --> J[Generate Final Per-Student Hashes]
+    J --> K[(Stored in Internal Institutional Chain)]
+
+    %% Component 1 Flow
+    K -->|After Finalization Window| L[🧩 Component 1: Merkle Root Compilation]
+    L --> M[Build Merkle Tree Dataset]
+    M --> N[(Upload Final Dataset to IPFS / Pinata)]
+    N --> O[Anchors CID + Merkle Root on Ethereum Blockchain]
+
+    %% Component 4 Flow
+    O --> P[🧩 Component 4: Corporate Verification Gateway]
+    P --> Q{Employer Submits Verification Query}
+    Q -->|Fetches Dataset via CID & Computes ZKP / Merkle Proof| R{Integrity Match?}
+    
+    R -->|Valid| S[✅ Cryptographically Authentic & Untampered]
+    R -->|Invalid| T[❌ Record Tampered / Fraudulent Proof]
+
+    %% Styling
+    classDef comp3 fill:#1e1e1e,stroke:#4ade80,stroke-width:2px,color:#fff;
+    classDef comp2 fill:#1e1e1e,stroke:#f59e0b,stroke-width:2px,color:#fff;
+    classDef comp1 fill:#1e1e1e,stroke:#3b82f6,stroke-width:2px,color:#fff;
+    classDef comp4 fill:#1e1e1e,stroke:#a855f7,stroke-width:2px,color:#fff;
     classDef blockchain fill:#627EEA,stroke:#333,stroke-width:2px,color:#fff;
-    class I blockchain;
+    classDef locked fill:#ef4444,stroke:#991b1b,stroke-width:2px,color:#fff;
+    classDef valid fill:#22c55e,stroke:#15803d,stroke-width:2px,color:#fff;
+
+    class B,E,F,G,H comp3;
+    class I,J,K comp2;
+    class L,M,N comp1;
+    class P,Q,R comp4;
+    class O blockchain;
+    class D,T locked;
+    class S valid;
 ```
 
 ---
@@ -107,7 +143,36 @@ Sends a strictly standardized API contract to the BOE Layer. The payload include
   ]
 }
 ```
-*From here, Component 2 handles Appeals/Corrections and generates the strict hash for the Merkle Tree.*
+
+### 🚀 How to Run and Test Component 3 Locally
+
+To run the complete end-to-end Component 3 pipeline (Frontend, Middleware, Mock Server, and Policy Admin), open **three separate terminal windows**:
+
+#### 🗂️ 1. Terminal 1: Start the Middleware Server
+Open a second terminal, navigate to the middleware folder, and start the mock backend stand-in (runs on port 4000):
+```bash
+cd middleware
+node src/server.js
+```
+
+#### 🛠️ 2. Terminal 2: Start the Mock Component 2 Server
+Navigate to your middleware folder and boot the main Node.js server (runs on port `5000`):
+```bash
+cd middleware
+node src/mock-server.js
+```
+#### 💻 3. Terminal 3: Start the React Frontend
+Open a third terminal, navigate to your frontend directory, install dependencies (if not already done), and launch the Vite development server:
+```bash
+cd frontend
+npm install
+npm run dev
+```
+#### 🧪 Live Testing Guide for Presentations
+- **System Admin Portal:**: Click into the Admin Gateway to configure your institutional windows. Switch the time unit to "Minutes" (e.g., Standard Window = 1 min, BOE Window = 2 min, Appeals = 3 min) and click Deploy.
+- **Lecturer Portal**:Sign in via institutional SSO, view the Live Module Scanner (which dynamically projects and localizes lock/unlock times to your exact OS timezone), drop an `.xlsx` or `.csv` grading sheet, enter a module code (e.g., `SE4010`), and click Verify & Ledger Upload.
+- **Time-Gate Enforcement**: Watch the system autonomously lock uploads once the policy window elapses, or test the Re-correction / Grade Appeal toggle to trigger context-aware routing bypass straight to the mock server!
+
 </details>
 
 <details>
@@ -184,14 +249,13 @@ Allows employers/students to verify authenticity.
 ---
 
 ## 🔥 Final System Benefits
-- ✅ Prevents fake result sheets
-- ✅ Prevents transcript tampering
-- ✅ Independent employer verification
-- ✅ Transparent academic proof system
-- ✅ Reduced blockchain storage cost
-- ✅ Scalable architecture
-- ✅ Keeps student data private
-- ✅ Tamper detection using cryptography
+- ✅ **Tamper-Resistant Academic Proof:** Eliminates fake transcripts, PDF forgery, and unverified grade alterations.
+- ✅ **Automated Multi-Phase Time-Gating:** Enforces rigid operational windows (Standard Entry, BOE Review, Appeals, Finalization) programmatically.
+- ✅ **Context-Aware Appeal Routing:** Seamlessly handles standard entries versus formal re-correction overrides.
+- ✅ **Idempotency & Bandwidth Protection:** Intercepts duplicate payloads to prevent redundant ledger bloat.
+- ✅ **Configurable Institutional Governance:** Dynamic policy engine permits tailoring of time windows to fit diverse university rules without hardcoding.
+- ✅ **PDPA Privacy Compliant:** Strips sensitive personal identifiers while maintaining full candidate verification integrit
+- ✅ **Decentralized Trust Model:** Empowers employers to independently verify records via IPFS and Ethereum without manual university intervention.
 
 ---
 
@@ -201,7 +265,7 @@ Allows employers/students to verify authenticity.
 | :--- | :--- |
 | **Component 1** | 🟢 Hashing + Merkle + IPFS completed |
 | **Component 2** | 🟢 BOE APIs + Versioning + Hashing completed |
-| **Component 3** | 🟢 Upload/parser/portal completed |
+| **Component 3** | 🟢 Silent Bridge, dynamic time-gates, schema parser, idempotency, live module scanner & admin dashboard completed |
 | **Component 4** | 🟢 ZKP verification backend completed |
 
 ---
