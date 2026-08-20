@@ -4,7 +4,8 @@ import EditForm from "./EditForm";
 import AuditHistory from "./AuditHistory";
 import "./CandidateSearch.css";
 
-function CandidateSearch({ moduleCode }) {
+function CandidateSearch({ module }) {
+  const { moduleCode } = module;
   const [candidateId, setCandidateId] = useState("");
   const [candidateData, setCandidateData] = useState(null);
   const [error, setError] = useState("");
@@ -15,9 +16,7 @@ function CandidateSearch({ moduleCode }) {
     try {
       setLoading(true);
       setError("");
-      const response = await api.get(
-        `http://localhost:5000/api/candidate/${id}`,
-      );
+      const response = await api.get(`/candidate/${id}`);
       setCandidateData(response.data);
     } catch {
       setCandidateData(null);
@@ -177,7 +176,7 @@ function CandidateSearch({ moduleCode }) {
             </div>
             <EditForm
               candidateData={candidateData}
-              moduleCode={moduleCode}
+              module={module}
               onSaveSuccess={handleSaveSuccess}
             />
           </section>

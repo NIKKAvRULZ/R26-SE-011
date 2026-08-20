@@ -17,13 +17,13 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
 
-  useEffect(() => {
-    loadDashboard();
-  }, []);
-
   // ==========================================
   // LOAD DASHBOARD
   // ==========================================
+
+  useEffect(() => {
+    loadDashboard();
+  }, []);
 
   const loadDashboard = async () => {
     try {
@@ -50,23 +50,68 @@ function Dashboard() {
   };
 
   // ==========================================
+  // OPEN MODULE
+  // ==========================================
+
+  const handleModuleClick = (module) => {
+    // Locked modules cannot be opened
+    if (module.status === "LOCKED") {
+      return;
+    }
+
+    // Empty modules cannot be opened
+    if (module.status === "EMPTY") {
+      return;
+    }
+
+    setSelectedModule(module);
+  };
+
+  // ==========================================
   // DOWNLOAD EXCEL
   // ==========================================
 
   const handleDownloadExcel = async () => {
     if (!selectedModule) return;
 
+    // Frontend protection
+    if (selectedModule.status !== "OPEN") {
+      alert("Excel export is unavailable because the review period is closed.");
+      return;
+    }
+
     try {
       setExporting(true);
 
-      await downloadModuleExcel(selectedModule);
+      await downloadModuleExcel(selectedModule.moduleCode);
     } catch (error) {
       console.error("Excel download failed:", error);
 
-      alert(error.response?.data?.message || "Failed to download Excel file.");
+      /*
+       * Axios normally provides the backend error here.
+       * However, because the responseType is "blob", the
+       * backend JSON error may also arrive as a Blob.
+       */
+      let errorMessage = "Failed to download Excel file.";
+
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+
+      alert(errorMessage);
     } finally {
       setExporting(false);
     }
+  };
+
+  // ==========================================
+  // FORMAT DATE
+  // ==========================================
+
+  const formatDate = (date) => {
+    if (!date) return "N/A";
+
+    return new Date(date).toLocaleString();
   };
 
   // ==========================================
@@ -142,7 +187,7 @@ function Dashboard() {
               <h2>Your Assigned Modules</h2>
 
               <p>
-                Select a module to begin reviewing and revising candidate
+                Select an open module to begin reviewing and revising candidate
                 results.
               </p>
             </section>
@@ -152,43 +197,114 @@ function Dashboard() {
                 ================================== */}
 
             <div className="module-grid">
-              {dashboard.assignedModules.map((module) => (
-                <div
-                  key={module}
-                  className="module-card"
-                  onClick={() => setSelectedModule(module)}
-                >
-                  <div className="module-card__top">
-                    <div className="module-card__icon">
-                      <svg
-                        width="22"
-                        height="22"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                      >
-                        <path d="M4 4h16v16H4z" />
-                        <path d="M8 8h8" />
-                        <path d="M8 12h8" />
-                        <path d="M8 16h5" />
-                      </svg>
+              {dashboard.assignedModules.map((module) => {
+                const isLocked = module.status === "LOCKED";
+                const isEmpty = module.status === "EMPTY";
+                const isOpen = module.status === "OPEN";
+
+                return (
+                  <div
+                    key={module.moduleCode}
+                    className={`module-card ${
+                      isLocked || isEmpty ? "module-card--locked" : ""
+                    }`}
+                    onClick={() => handleModuleClick(module)}
+                  >
+                    {/* ==========================
+                        CARD TOP
+                        ========================== */}
+
+                    <div className="module-card__top">
+                      <div className="module-card__icon">
+                        <svg
+                          width="22"
+                          height="22"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                        >
+                          <path d="M4 4h16v16H4z" />
+                          <path d="M8 8h8" />
+                          <path d="M8 12h8" />
+                          <path d="M8 16h5" />
+                        </svg>
+                      </div>
+
+                      {isOpen && <span className="module-card__arrow">→</span>}
                     </div>
 
-                    <span className="module-card__arrow">→</span>
+                    {/* ==========================
+                        MODULE CODE
+                        ========================== */}
+
+                    <h3>{module.moduleCode}</h3>
+
+                    {/* ==========================
+                        DESCRIPTION
+                        ========================== */}
+
+                    <p>
+                      {isOpen
+                        ? "Review and manage candidate results"
+                        : isLocked
+                          ? "BOE review period has ended"
+                          : "No results available for this module"}
+                    </p>
+
+                    {/* ==========================
+                        STATUS
+                        ========================== */}
+
+                    <div
+                      className={`module-status ${
+                        isOpen ? "module-status--open" : "module-status--locked"
+                      }`}
+                    >
+                      {isOpen ? (
+                        <>
+                          <span className="module-status__dot" />
+                          <span>REVIEW OPEN</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="module-status__lock">🔒</span>
+
+                          <span>
+                            {isEmpty ? "NO RESULTS" : "REVIEW LOCKED"}
+                          </span>
+                        </>
+                      )}
+                    </div>
+
+                    {/* ==========================
+                        DEADLINE
+                        ========================== */}
+
+                    {module.reviewDeadline && (
+                      <div className="module-deadline">
+                        <span className="module-deadline__label">
+                          REVIEW DEADLINE
+                        </span>
+
+                        <span className="module-deadline__value">
+                          {formatDate(module.reviewDeadline)}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* ==========================
+                        FOOTER
+                        ========================== */}
+
+                    <div className="module-card__footer">
+                      <span>{isOpen ? "Open Module" : "Module Locked"}</span>
+
+                      {isOpen && <span>→</span>}
+                    </div>
                   </div>
-
-                  <h3>{module}</h3>
-
-                  <p>Review and manage candidate results</p>
-
-                  <div className="module-card__footer">
-                    <span>Open Module</span>
-
-                    <span>→</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </>
         ) : (
@@ -217,16 +333,45 @@ function Dashboard() {
                 Back to Modules
               </button>
 
+              {/* ==================================
+                  CURRENT MODULE
+                  ================================== */}
+
               <div className="current-module">
                 <span className="current-module__label">MODULE</span>
 
-                <strong>{selectedModule}</strong>
+                <strong>{selectedModule.moduleCode}</strong>
               </div>
+
+              {/* ==================================
+                  MODULE STATUS
+                  ================================== */}
+
+              <div
+                className={`toolbar-status ${
+                  selectedModule.status === "OPEN"
+                    ? "toolbar-status--open"
+                    : "toolbar-status--locked"
+                }`}
+              >
+                {selectedModule.status === "OPEN" ? (
+                  <>
+                    <span className="toolbar-status__dot" />
+                    REVIEW OPEN
+                  </>
+                ) : (
+                  <>🔒 REVIEW LOCKED</>
+                )}
+              </div>
+
+              {/* ==================================
+                  DOWNLOAD EXCEL
+                  ================================== */}
 
               <button
                 className="download-excel-btn"
                 onClick={handleDownloadExcel}
-                disabled={exporting}
+                disabled={exporting || selectedModule.status !== "OPEN"}
               >
                 {exporting ? (
                   <>
@@ -256,10 +401,42 @@ function Dashboard() {
             </div>
 
             {/* ==================================
+                REVIEW INFORMATION
+                ================================== */}
+
+            <div className="selected-module-info">
+              <div>
+                <span className="selected-module-info__label">
+                  REVIEW DEADLINE
+                </span>
+
+                <strong>{formatDate(selectedModule.reviewDeadline)}</strong>
+              </div>
+
+              <div>
+                <span className="selected-module-info__label">
+                  RELEASE DATE
+                </span>
+
+                <strong>{formatDate(selectedModule.releaseDate)}</strong>
+              </div>
+
+              <div>
+                <span className="selected-module-info__label">STATUS</span>
+
+                <strong>
+                  {selectedModule.status === "OPEN"
+                    ? "REVIEW OPEN"
+                    : "REVIEW LOCKED"}
+                </strong>
+              </div>
+            </div>
+
+            {/* ==================================
                 CANDIDATE SEARCH
                 ================================== */}
 
-            <CandidateSearch moduleCode={selectedModule} />
+            <CandidateSearch module={selectedModule} />
           </>
         )}
       </main>

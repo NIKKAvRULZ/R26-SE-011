@@ -582,6 +582,240 @@
   animation: dashboardSpin 0.8s linear infinite;
 }
 
+/* =====================================================
+   MODULE STATUS
+   ===================================================== */
+
+.module-status {
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: 7px;
+
+  width: fit-content;
+
+  margin-top: 14px;
+
+  padding: 5px 9px;
+
+  border-radius: 6px;
+
+  font-family: var(--font-mono);
+
+  font-size: 9px;
+
+  font-weight: 700;
+
+  letter-spacing: 0.08em;
+}
+
+.module-status--open {
+  color: var(--accent);
+
+  background: var(--accent-glow);
+
+  border: 1px solid var(--accent-dim);
+}
+
+.module-status--locked {
+  color: var(--text-muted);
+
+  background: var(--bg);
+
+  border: 1px solid var(--border);
+}
+
+.module-status__dot {
+  width: 7px;
+
+  height: 7px;
+
+  border-radius: 50%;
+
+  background: var(--accent);
+
+  box-shadow: 0 0 8px var(--accent);
+}
+
+.module-status__lock {
+  font-size: 10px;
+}
+
+/* =====================================================
+   MODULE DEADLINE
+   ===================================================== */
+
+.module-deadline {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 4px;
+
+  margin-top: 12px;
+}
+
+.module-deadline__label {
+  color: var(--text-muted);
+
+  font-family: var(--font-mono);
+
+  font-size: 8px;
+
+  font-weight: 600;
+
+  letter-spacing: 0.1em;
+}
+
+.module-deadline__value {
+  color: var(--text);
+
+  font-family: var(--font-mono);
+
+  font-size: 10px;
+}
+
+/* =====================================================
+   LOCKED MODULE CARD
+   ===================================================== */
+
+.module-card--locked {
+  cursor: not-allowed;
+
+  opacity: 0.65;
+
+  background: var(--bg);
+}
+
+.module-card--locked:hover {
+  transform: none;
+
+  border-color: var(--border);
+
+  box-shadow: none;
+}
+
+.module-card--locked .module-card__icon {
+  color: var(--text-muted);
+
+  background: var(--bg);
+
+  border-color: var(--border);
+}
+
+.module-card--locked h3 {
+  color: var(--text-muted);
+}
+
+.module-card--locked .module-card__footer {
+  color: var(--text-muted);
+}
+
+/* =====================================================
+   TOOLBAR STATUS
+   ===================================================== */
+
+.toolbar-status {
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: 7px;
+
+  padding: 6px 10px;
+
+  border-radius: 6px;
+
+  font-family: var(--font-mono);
+
+  font-size: 9px;
+
+  font-weight: 700;
+
+  letter-spacing: 0.08em;
+}
+
+.toolbar-status--open {
+  color: var(--accent);
+
+  background: var(--accent-glow);
+
+  border: 1px solid var(--accent-dim);
+}
+
+.toolbar-status--locked {
+  color: var(--text-muted);
+
+  background: var(--bg);
+
+  border: 1px solid var(--border);
+}
+
+.toolbar-status__dot {
+  width: 7px;
+
+  height: 7px;
+
+  border-radius: 50%;
+
+  background: var(--accent);
+
+  box-shadow: 0 0 8px var(--accent);
+}
+
+/* =====================================================
+   SELECTED MODULE INFO
+   ===================================================== */
+
+.selected-module-info {
+  display: flex;
+
+  align-items: center;
+
+  gap: 35px;
+
+  margin-bottom: 25px;
+
+  padding: 14px 18px;
+
+  border: 1px solid var(--border);
+
+  border-radius: var(--radius);
+
+  background: var(--surface);
+}
+
+.selected-module-info > div {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 5px;
+}
+
+.selected-module-info__label {
+  color: var(--text-muted);
+
+  font-family: var(--font-mono);
+
+  font-size: 8px;
+
+  font-weight: 600;
+
+  letter-spacing: 0.1em;
+}
+
+.selected-module-info strong {
+  color: var(--text);
+
+  font-family: var(--font-mono);
+
+  font-size: 11px;
+
+  font-weight: 500;
+}
+
 @keyframes dashboardSpin {
   to {
     transform: rotate(360deg);
@@ -676,5 +910,17 @@
 
   .back-btn {
     width: 100%;
+  }
+
+  .selected-module-info {
+    flex-direction: column;
+
+    align-items: flex-start;
+
+    gap: 14px;
+  }
+
+  .toolbar-status {
+    width: fit-content;
   }
 }
