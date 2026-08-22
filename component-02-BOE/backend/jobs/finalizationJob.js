@@ -1,60 +1,29 @@
 // component-02-BOE/backend/jobs/finalizationJob.js
-const cron = require("node-cron");
-const fs = require("fs");
-const path = require("path");
 const { finalizeExpiredResults } = require("../services/finalizationService");
 
-// =======================================
-// DYNAMIC POLICY READER FOR CRON
-// =======================================
-const getPolicyConfig = () => {
-  try {
-    const configPath = path.join(__dirname, "../../../component-03-silent-bridge/middleware/system-config.json");
-    if (fs.existsSync(configPath)) {
-      const raw = fs.readFileSync(configPath, "utf8");
-      return JSON.parse(raw);
-    }
-  } catch (err) {
-    console.warn("⚠️ Could not read policy for finalization job, defaulting to minutes.");
-  }
-  return { timeUnit: "minutes", boeReviewWindow: 2, specialConcernsWindow: 5 };
-};
-
-// =======================================
-// AUTOMATIC FINALIZATION JOB
-// =======================================
-
 const startFinalizationJob = () => {
-  // Run once when the server starts[cite: 5]
+  // Run once on server startup
   runFinalization();
 
-  // Run every minute (`* * * * *`) for real-time synchronization with Component 3 clock
-  cron.schedule("* * * * *", async () => {
+  // Run every 30 seconds for instant finalization checks
+  setInterval(async () => {
     await runFinalization();
-  });
+  }, 30000);
 
   console.log("⏰ Component 2 Synchronized Finalization Job Started.");
-  console.log("   → Actively evaluating BOE lock and review thresholds every minute.");
+  console.log("   → Actively evaluating BOE review thresholds every 30 seconds.");
 };
-
-// =======================================
-// RUN FINALIZATION
-// =======================================
 
 const runFinalization = async () => {
   try {
-    const policy = getPolicyConfig();
-    console.log(`\n🔍 [Clock Sync] Scanning BOE records against active policy (${policy.boeReviewWindow} ${policy.timeUnit})...`);
-
     const result = await finalizeExpiredResults();
-
-    if (result.finalized > 0 || result.skipped > 0) {
+    if (result && (result.finalized > 0 || result.skipped > 0)) {
       console.log(
         `✅ Finalization sync complete -> Transferred to Final Database: Finalized: ${result.finalized}, Skipped: ${result.skipped}`,
       );
     }
   } catch (error) {
-    console.error("❌ Automatic finalization sync failed:", error);
+    console.error("❌ Automatic finalization failed:", error);
   }
 };
 

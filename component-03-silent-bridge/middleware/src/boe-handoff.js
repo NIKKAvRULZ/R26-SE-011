@@ -6,8 +6,7 @@ const axios = require('axios');
  * @param {Object} uploadReceipt - The metadata from the upload (module, uploader, hash)
  * @param {Array} extractedData - The JSON array of student grades parsed by SheetJS
  */
-async function pushToBOE(uploadReceipt, extractedData) {
-    // Pointing directly to Component 2 running on port 5001
+async function pushToBOE(uploadReceipt, extractedData, originalTimestamp) {
     const COMPONENT_2_ENDPOINT = 'http://localhost:5001/api/boe/ingest';
 
     const payload = {
@@ -16,6 +15,7 @@ async function pushToBOE(uploadReceipt, extractedData) {
             moduleCode: uploadReceipt.moduleCode,
             uploaderName: uploadReceipt.uploader,
             isRecorrection: uploadReceipt.isRecorrection,
+            originalTimestamp: originalTimestamp || uploadReceipt.timestamp, // <--- Handled safely here
             timestamp: new Date().toISOString(),
             source: "COMPONENT_3_SILENT_BRIDGE"
         },

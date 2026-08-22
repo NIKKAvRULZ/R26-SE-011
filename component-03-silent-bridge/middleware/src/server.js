@@ -310,7 +310,6 @@ setInterval(async () => {
         const boeWindow = Number(policy.boeReviewWindow);
         const currentDate = new Date();
 
-        // Find unique modules in ledger
         const modules = [...new Set(ledger.map(b => b.moduleCode))];
 
         for (const targetModule of modules) {
@@ -319,7 +318,6 @@ setInterval(async () => {
 
             const timePassed = getTimePassed(new Date(firstUpload.timestamp), currentDate, policy.timeUnit);
 
-            // Trigger handoff the exact second the standard window elapses and BOE review starts
             if (timePassed >= stdWindow && timePassed < boeWindow) {
                 const latestBlock = ledger.filter(b => b.moduleCode === targetModule).pop();
 
@@ -327,14 +325,14 @@ setInterval(async () => {
                     console.log(`\n🚀 [Auto-Handoff Trigger] Module ${targetModule} crossed Standard Window (${timePassed} ${policy.timeUnit}). Automatically pushing to BOE...`);
                     
                     try {
+                        // Pass firstUpload.timestamp as the 3rd argument to pushToBOE
                         await pushToBOE({
                             provenanceHash: latestBlock.blockHash,
                             moduleCode: targetModule,
                             uploader: latestBlock.uploader,
                             isRecorrection: false
-                        }, latestBlock.data);
+                        }, latestBlock.data, firstUpload.timestamp);
 
-                        // Mark as handed off in local ledger so it only fires once
                         latestBlock.handedOffToBOE = true;
                         fs.writeFileSync(ledgerPath, JSON.stringify(ledger, null, 2));
                         console.log(`✅ Automatic BOE Handoff successfully completed for module ${targetModule}!`);
@@ -347,7 +345,7 @@ setInterval(async () => {
     } catch (err) {
         console.error("Background Watcher Error:", err.message);
     }
-}, 5000); // Check every 5 seconds
+}, 5000);
 
 // ============================================================================
 // SERVER LISTENER

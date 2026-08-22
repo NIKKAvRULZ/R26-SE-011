@@ -1,5 +1,4 @@
 // component-02-BOE/backend/jobs/blockchainJob.js
-const cron = require("node-cron");
 const fs = require("fs");
 const path = require("path");
 const FinalResult = require("../models/FinalResult");
@@ -22,20 +21,20 @@ const getPolicyConfig = () => {
 };
 
 // =======================================
-// AUTOMATIC BLOCKCHAIN JOB
+// AUTOMATIC BLOCKCHAIN JOB (30-SEC INTERVAL)
 // =======================================
 
 const startBlockchainJob = () => {
   // Run once when server starts[cite: 6]
   runBlockchainSync();
 
-  // Run every minute for synchronized batch anchoring
-  cron.schedule("* * * * *", async () => {
+  // Run every 30 seconds for rapid batch synchronization
+  setInterval(async () => {
     await runBlockchainSync();
-  });
+  }, 30000);
 
-  console.log("⛓️ Synchronized Blockchain Job Started.");
-  console.log("   → Checking blockchain-eligible results every minute.");
+  console.log("⛓️ High-Speed Synchronized Blockchain Job Started.");
+  console.log("   → Checking blockchain-eligible results every 30 seconds.");
 };
 
 // =======================================
@@ -57,7 +56,7 @@ const runBlockchainSync = async () => {
     });
 
     if (eligibleResults.length === 0) {
-      return; // Keeps console clean when no items are pending
+      return; 
     }
 
     console.log(`\n🔗 [Blockchain Sync] Found ${eligibleResults.length} eligible result(s) ready for anchoring (Unit: ${policy.timeUnit}).`);

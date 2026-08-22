@@ -67,6 +67,13 @@ exports.importResults = async (req, res) => {
 
     const moduleCode = metadata.moduleCode.trim().toUpperCase();
 
+    // =========================================
+    // SYNCHRONIZE TIMELINE CLOCK
+    // =========================================
+    // Extract Component 3's true original upload timestamp so Component 2 
+    // doesn't restart its review clock from scratch upon import.
+    const trueReleaseDate = metadata.originalTimestamp ? new Date(metadata.originalTimestamp) : new Date();
+
     let imported = 0;
     let skipped = 0;
 
@@ -155,6 +162,8 @@ exports.importResults = async (req, res) => {
         version: 1,
 
         history: [],
+
+        releaseDate: trueReleaseDate, // 👈 Synchronized with Component 3's true origin timeline!
       });
 
       // =========================================
@@ -165,7 +174,7 @@ exports.importResults = async (req, res) => {
 
       imported++;
 
-      console.log(`✅ Imported: ${candidateId} - ${moduleCode}`);
+      console.log(`✅ Imported: ${candidateId} - ${moduleCode} with anchored releaseDate: ${trueReleaseDate.toISOString()}`);
     }
 
     // =========================================
