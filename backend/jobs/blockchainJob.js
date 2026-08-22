@@ -19,7 +19,7 @@ const startBlockchainJob = () => {
 
   // Production:
   // Run every hour
-  cron.schedule("0 * * * *", async () => {
+  cron.schedule("* * * * *", async () => {
     await runBlockchainSync();
   });
 

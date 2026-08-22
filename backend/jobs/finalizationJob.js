@@ -18,7 +18,7 @@ const startFinalizationJob = () => {
   runFinalization();
 
   // Then run every hour
-  cron.schedule("0 * * * *", async () => {
+  cron.schedule("* * * * *", async () => {
     await runFinalization();
   });
 
