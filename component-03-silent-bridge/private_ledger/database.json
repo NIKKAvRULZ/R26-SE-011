@@ -1,70 +1,66 @@
 [
   {
-    "timestamp": "2026-08-16T15:24:00.622Z",
-    "moduleCode": "SE3010",
-    "uploader": "Dr. Nithika Perera",
-    "isRecorrection": false,
-    "recordCount": 2,
-    "payloadHash": "4ed88eada7501912ca924459d7f512d419f7c72304261a5f16f2e4cc1cc12da6",
-    "data": [
-      {
-        "candidateId": "IT22061348",
-        "gradingData": {
-          "Appealed Grade": "A",
-          "BOE Approval": "APPROVED",
-          "Previous Grade": "A-"
-        }
-      },
-      {
-        "candidateId": "IT22206282",
-        "gradingData": {
-          "Appealed Grade": "B-",
-          "BOE Approval": "APPROVED",
-          "Previous Grade": "C+"
-        }
-      }
-    ],
-    "previousHash": "0000000000000000000000000000000000000000000000000000000000000000",
-    "blockHash": "b3e42da4683c8ceabf10129715a8ff6eb7294622c1de671d51fd4d73ee62be8e"
-  },
-  {
-    "timestamp": "2026-08-16T15:24:08.192Z",
+    "timestamp": "2026-08-22T10:55:41.747Z",
     "moduleCode": "SE4010",
     "uploader": "Dr. Nithika Perera",
     "isRecorrection": false,
     "recordCount": 4,
-    "payloadHash": "14f682cb0f03958b1b0963a21e1388c8c9c4ba629e51146fb8e3235f0711f34e",
+    "payloadHash": "b9077cad55e9d4ae52491f79ab7cebbf177f726d818b9812ffacca40fd9fd9df",
     "data": [
       {
         "candidateId": "IT22061348",
         "gradingData": {
           "Credits": "4",
-          "Final Grade": "A+"
+          "Final Grade": "A+",
+          "Marks": "80"
         }
       },
       {
         "candidateId": "IT00102030",
         "gradingData": {
           "Credits": "4",
-          "Final Grade": "A-"
+          "Final Grade": "A-",
+          "Marks": "75"
         }
       },
       {
         "candidateId": "IT00203040",
         "gradingData": {
           "Credits": "4",
-          "Final Grade": "B+"
+          "Final Grade": "B+",
+          "Marks": "65"
         }
       },
       {
         "candidateId": "IT00304050",
         "gradingData": {
           "Credits": "4",
-          "Final Grade": "C+"
+          "Final Grade": "C+",
+          "Marks": "55"
         }
       }
     ],
-    "previousHash": "b3e42da4683c8ceabf10129715a8ff6eb7294622c1de671d51fd4d73ee62be8e",
-    "blockHash": "cf65cde19093e5a5f06f40cfdceab92c3c4220840e2651bad2d234286247f238"
+    "previousHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "blockHash": "ef7db137d23ccf0f6737ffb1e695512aca29708f90b81643077e604025340d92"
+  },
+  {
+    "timestamp": "2026-08-22T10:58:05.685Z",
+    "moduleCode": "SE4010",
+    "uploader": "Dr. Nithika Perera",
+    "isRecorrection": true,
+    "recordCount": 1,
+    "payloadHash": "ce32efc7e397a5d57265785a43b7431aee924e993cf489004fbac09302b8a423",
+    "data": [
+      {
+        "candidateId": "IT00304050",
+        "gradingData": {
+          "Appealed Grade": "B-",
+          "BOE Approval": "YES",
+          "Previous Grade": "C+"
+        }
+      }
+    ],
+    "previousHash": "ef7db137d23ccf0f6737ffb1e695512aca29708f90b81643077e604025340d92",
+    "blockHash": "33406bb7997b237eaaab5fe8124ebad2c5184e6157750444fc1c02e0f198d326"
   }
 ]

@@ -7,7 +7,7 @@ const axios = require('axios');
  */
 async function pushToBOEDirect(uploadReceipt, extractedData) {
     // Note the different route: /api/boe/direct-update instead of /api/boe/ingest
-    const COMPONENT_2_DIRECT_ENDPOINT = 'http://localhost:4000/api/boe/direct-update'; 
+    const COMPONENT_2_DIRECT_ENDPOINT = 'http://localhost:5001/api/boe/direct-update'; 
 
     const payload = {
         metadata: {

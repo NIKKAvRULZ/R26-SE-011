@@ -1,14 +1,26 @@
 const Result = require("../models/Result");
 const FinalResult = require("../models/FinalResult");
 const { generateResultHash } = require("../utils/hashGenerator");
+const fs = require("fs");
+const path = require("path");
 
 // =======================================
-// CONFIGURATION
+// DYNAMIC CONFIG READER (Synced with Component 3 Admin Policy)
 // =======================================
-
-const BOE_REVIEW_DAYS = Number(process.env.BOE_REVIEW_DAYS || 7);
-
-const FINAL_HOLD_DAYS = Number(process.env.FINAL_HOLD_DAYS || 7);
+const getSystemPolicy = () => {
+  try {
+    const configPath = path.join(__dirname, "../../../component-03-silent-bridge/middleware/system-config.json");
+    if (fs.existsSync(configPath)) {
+      const raw = fs.readFileSync(configPath, "utf8");
+      const policy = JSON.parse(raw);
+      console.log(`📡 [Sync Success] Component 2 successfully read Component 3 Policy:`, policy);
+      return policy;
+    }
+  } catch (err) {
+    console.warn("⚠️ Could not load system-config.json in Component 2, falling back to defaults.");
+  }
+  return { standardUploadWindow: 7, boeReviewWindow: 14, specialConcernsWindow: 21, timeUnit: "days" };
+};
 
 // =======================================
 // FINALIZE EXPIRED BOE RESULTS
@@ -16,11 +28,26 @@ const FINAL_HOLD_DAYS = Number(process.env.FINAL_HOLD_DAYS || 7);
 
 const finalizeExpiredResults = async () => {
   try {
+    const policy = getSystemPolicy();
     const now = new Date();
 
-    const deadline = new Date(
-      now.getTime() - BOE_REVIEW_DAYS * 24 * 60 * 60 * 1000,
-    );
+    let deadlineMs = 0;
+    const boeWindow = Number(policy.boeReviewWindow);
+
+    if (policy.timeUnit === "minutes") {
+      deadlineMs = boeWindow * 60 * 1000;
+    } else {
+      deadlineMs = boeWindow * 24 * 60 * 60 * 1000;
+    }
+
+    const deadline = new Date(now.getTime() - deadlineMs);
+
+    console.log(`\n==================================================`);
+    console.log(`⚙️ [BOE Time-Gate Check] Running Synchronization Job`);
+    console.log(`   - Time Unit Active: ${policy.timeUnit}`);
+    console.log(`   - BOE Review Window Threshold: ${boeWindow} ${policy.timeUnit}`);
+    console.log(`   - Target Cutoff Deadline: ${deadline.toISOString()}`);
+    console.log(`==================================================\n`);
 
     // =======================================
     // FIND EXPIRED RESULTS
@@ -30,18 +57,18 @@ const finalizeExpiredResults = async () => {
       releaseDate: {
         $lte: deadline,
       },
-
       finalized: false,
     }).lean();
 
     if (expiredResults.length === 0) {
+      console.log(`ℹ️ No expired BOE results found matching deadline criteria.`);
       return {
         finalized: 0,
         skipped: 0,
       };
     }
 
-    console.log(`\n🔒 Found ${expiredResults.length} expired BOE result(s).`);
+    console.log(`\n🔒 Found ${expiredResults.length} expired BOE result(s) ready for finalization.`);
 
     let finalized = 0;
     let skipped = 0;
@@ -51,10 +78,6 @@ const finalizeExpiredResults = async () => {
     // =======================================
 
     for (const result of expiredResults) {
-      // =======================================
-      // CHECK IF ALREADY FINALIZED
-      // =======================================
-
       const existingFinal = await FinalResult.findOne({
         candidateId: result.candidateId,
         moduleCode: result.moduleCode,
@@ -62,23 +85,20 @@ const finalizeExpiredResults = async () => {
 
       if (existingFinal) {
         skipped++;
-
         continue;
       }
 
-      // =======================================
-      // FINALIZATION TIME
-      // =======================================
-
       const finalizedAt = new Date();
 
-      const blockchainEligibleAt = new Date(
-        finalizedAt.getTime() + FINAL_HOLD_DAYS * 24 * 60 * 60 * 1000,
-      );
+      let holdMs = 0;
+      const specialWindow = Number(policy.specialConcernsWindow);
+      if (policy.timeUnit === "minutes") {
+        holdMs = specialWindow * 60 * 1000;
+      } else {
+        holdMs = specialWindow * 24 * 60 * 60 * 1000;
+      }
 
-      // =======================================
-      // GENERATE STUDENT HASH
-      // =======================================
+      const blockchainEligibleAt = new Date(finalizedAt.getTime() + holdMs);
 
       const hash = generateResultHash({
         candidateId: result.candidateId,
@@ -88,43 +108,22 @@ const finalizeExpiredResults = async () => {
         version: result.version,
       });
 
-      // =======================================
-      // CREATE FINAL RESULT
-      // =======================================
-
       const finalResult = new FinalResult({
         candidateId: result.candidateId,
-
         moduleCode: result.moduleCode,
-
         marks: result.marks,
-
         grade: result.grade,
-
         gradingData: result.gradingData,
-
         uploader: result.uploader,
-
         provenanceHash: result.provenanceHash,
-
         payloadHash: result.payloadHash,
-
         version: result.version,
-
         history: result.history || [],
-
         finalizedAt,
-
         blockchainEligibleAt,
-
         hash,
-
         blockchainStatus: "PENDING",
       });
-
-      // =======================================
-      // SAVE
-      // =======================================
 
       await finalResult.save();
 
@@ -141,19 +140,14 @@ const finalizeExpiredResults = async () => {
 
       finalized++;
 
-      console.log(`✅ Finalized: ${result.candidateId} - ${result.moduleCode}`);
-
-      console.log(`   Version: ${result.version}`);
-
-      console.log(`   Hash: ${hash}`);
-
-      console.log(
-        `   Blockchain eligible: ${blockchainEligibleAt.toISOString()}`,
-      );
+      console.log(`✅ [Finalized] Student: ${result.candidateId} | Module: ${result.moduleCode}`);
+      console.log(`   - Version: ${result.version}`);
+      console.log(`   - Generated Hash: ${hash}`);
+      console.log(`   - Blockchain Eligible At: ${blockchainEligibleAt.toISOString()}`);
     }
 
     console.log(
-      `\n📊 Finalization complete. Finalized: ${finalized}, Skipped: ${skipped}\n`,
+      `\n📊 Job Complete -> Finalized: ${finalized} | Skipped: ${skipped}\n`,
     );
 
     return {
@@ -162,7 +156,6 @@ const finalizeExpiredResults = async () => {
     };
   } catch (error) {
     console.error("❌ Finalization service error:", error);
-
     throw error;
   }
 };

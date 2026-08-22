@@ -8,7 +8,7 @@ const axios = require('axios');
  */
 async function pushToBOE(uploadReceipt, extractedData) {
     // Fallback to our mock server if the real Component 2 isn't ready
-    const COMPONENT_2_ENDPOINT = 'http://localhost:4000/api/boe/ingest';
+    const COMPONENT_2_ENDPOINT = 'http://localhost:5001/api/boe/ingest';
 
     // This is the standardized contract you are establishing with Component 2
     const payload = {

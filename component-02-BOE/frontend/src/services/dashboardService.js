@@ -1,7 +1,7 @@
 import axios from "axios";
 import { getToken } from "../utils/auth";
 
-const API = "http://localhost:5000/api";
+const API = "http://localhost:5001/api";
 
 export const getDashboard = async () => {
   const response = await axios.get(
