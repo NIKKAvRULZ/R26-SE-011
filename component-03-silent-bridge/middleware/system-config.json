@@ -2,5 +2,5 @@
   "timeUnit": "minutes",
   "standardUploadWindow": "1",
   "boeReviewWindow": "2",
-  "specialConcernsWindow": "3"
+  "specialConcernsWindow": "5"
 }

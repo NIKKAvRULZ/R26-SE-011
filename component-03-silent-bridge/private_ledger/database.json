@@ -1,17 +1,17 @@
 [
   {
-    "timestamp": "2026-08-22T10:55:41.747Z",
+    "timestamp": "2026-08-22T12:04:30.950Z",
     "moduleCode": "SE4010",
     "uploader": "Dr. Nithika Perera",
     "isRecorrection": false,
     "recordCount": 4,
-    "payloadHash": "b9077cad55e9d4ae52491f79ab7cebbf177f726d818b9812ffacca40fd9fd9df",
+    "payloadHash": "355ef685f2967bd888cb97a373db1c192716d770d0729b437065cacfb73bc5f1",
     "data": [
       {
         "candidateId": "IT22061348",
         "gradingData": {
           "Credits": "4",
-          "Final Grade": "A+",
+          "Final Grade": "A",
           "Marks": "80"
         }
       },
@@ -41,26 +41,7 @@
       }
     ],
     "previousHash": "0000000000000000000000000000000000000000000000000000000000000000",
-    "blockHash": "ef7db137d23ccf0f6737ffb1e695512aca29708f90b81643077e604025340d92"
-  },
-  {
-    "timestamp": "2026-08-22T10:58:05.685Z",
-    "moduleCode": "SE4010",
-    "uploader": "Dr. Nithika Perera",
-    "isRecorrection": true,
-    "recordCount": 1,
-    "payloadHash": "ce32efc7e397a5d57265785a43b7431aee924e993cf489004fbac09302b8a423",
-    "data": [
-      {
-        "candidateId": "IT00304050",
-        "gradingData": {
-          "Appealed Grade": "B-",
-          "BOE Approval": "YES",
-          "Previous Grade": "C+"
-        }
-      }
-    ],
-    "previousHash": "ef7db137d23ccf0f6737ffb1e695512aca29708f90b81643077e604025340d92",
-    "blockHash": "33406bb7997b237eaaab5fe8124ebad2c5184e6157750444fc1c02e0f198d326"
+    "blockHash": "32045bee69bf30647fbbbef2a58a7bca80857683ffc814289ad166a8eb3f866a",
+    "handedOffToBOE": true
   }
 ]

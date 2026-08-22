@@ -49,14 +49,12 @@ app.post('/api/ingest', upload.single('gradingSheet'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No file uploaded.' });
 
-        // Grab metadata sent from React
         const moduleCode = (req.body.moduleCode || "UNKNOWN_MODULE").toUpperCase();
         const uploaderName = req.body.uploader || "UNKNOWN_UPLOADER";
         const isRecorrection = req.body.isRecorrection === 'true';
 
         console.log(`\n📥 1. Received file: ${req.file.originalname} for Module: ${moduleCode}`);
 
-        // --- STAGE 1: DYNAMIC TIME-GATE LOCKING LOGIC ---
         console.log(`⏳ 2. Checking Institutional Time-Gate Policy...`);
         
         const policy = getPolicyConfig();
@@ -66,7 +64,6 @@ app.post('/api/ingest', upload.single('gradingSheet'), async (req, res) => {
         }
         const ledger = JSON.parse(rawLedger);
 
-        // Find the absolute FIRST upload for this module to establish "Day 1"
         const firstUploadForModule = ledger.find(block => block.moduleCode === moduleCode);
 
         if (firstUploadForModule) {
@@ -76,31 +73,34 @@ app.post('/api/ingest', upload.single('gradingSheet'), async (req, res) => {
 
             console.log(`   ➔ Module ${moduleCode} was first uploaded ${timePassed} ${policy.timeUnit} ago.`);
 
+            const stdWindow = Number(policy.standardUploadWindow);
+            const boeWindow = Number(policy.boeReviewWindow);
+            const specialWindow = Number(policy.specialConcernsWindow);
+
             // Phase 1: Standard Upload Window
-            if (timePassed < policy.standardUploadWindow) {
+            if (timePassed < stdWindow) {
                 if (isRecorrection) {
-                    return res.status(403).json({ error: `Special Concerns window is closed. Only standard uploads allowed in the first ${policy.standardUploadWindow} ${policy.timeUnit}.` });
+                    return res.status(403).json({ error: `Special Concerns window is closed. Only standard uploads allowed in the first ${stdWindow} ${policy.timeUnit}.` });
                 }
             } 
-            // Phase 2: BOE Review Window - LOCKED
-            else if (timePassed >= policy.standardUploadWindow && timePassed < policy.boeReviewWindow) {
+            // Phase 2: BOE Review Window - LOCKED for new lecturer uploads
+            else if (timePassed >= stdWindow && timePassed < boeWindow) {
                 console.log(`🛑 Upload rejected. BOE Review phase is active.`);
-                return res.status(403).json({ error: `Uploads locked. Board of Examiners (BOE) review is currently in progress (Window: ${policy.standardUploadWindow}-${policy.boeReviewWindow} ${policy.timeUnit}).` });
+                return res.status(403).json({ error: `Uploads locked. Board of Examiners (BOE) review is currently in progress (Window: ${stdWindow}-${boeWindow} ${policy.timeUnit}).` });
             } 
             // Phase 3: Special Concerns Window
-            else if (timePassed >= policy.boeReviewWindow && timePassed < policy.specialConcernsWindow) {
+            else if (timePassed >= boeWindow && timePassed < specialWindow) {
                 if (!isRecorrection) {
                     console.log(`🛑 Standard upload rejected. Only Special Concerns allowed.`);
-                    return res.status(403).json({ error: `Standard uploads locked. Only Special Concerns (Re-corrections) are allowed during the appeals window (Window: ${policy.boeReviewWindow}-${policy.specialConcernsWindow} ${policy.timeUnit}).` });
+                    return res.status(403).json({ error: `Standard uploads locked. Only Special Concerns (Re-corrections) are allowed during the appeals window.` });
                 }
             } 
             // Phase 4: System Finalized - LOCKED
             else {
                 console.log(`🛑 Upload rejected. Module is permanently finalized.`);
-                return res.status(403).json({ error: `All upload windows for this module are permanently closed (${policy.specialConcernsWindow}+ ${policy.timeUnit}). Data is in final hashing phase.` });
+                return res.status(403).json({ error: `All upload windows for this module are permanently closed.` });
             }
         } else {
-            // If no previous upload exists, this is Day 1. It cannot be a Special Concern yet.
             if (isRecorrection) {
                 return res.status(400).json({ error: 'Cannot submit a Special Concern for a module that has no initial standard upload.' });
             }
@@ -116,19 +116,16 @@ app.post('/api/ingest', upload.single('gradingSheet'), async (req, res) => {
         const ledgerReceipt = appendToPrivateBlockchain(standardizedJson, moduleCode, uploaderName, isRecorrection);
 
         if (ledgerReceipt.status === 'duplicate') {
-            console.log(`🛑 Duplicate Payload Detected. Hash already exists in ledger. Skipped saving.`);
+            console.log(`🛑 Duplicate Payload Detected. Skipped saving.`);
             return res.status(200).json({
                 message: 'Data already securely anchored in the Private Ledger. No changes detected.',
                 fileName: req.file.originalname,
                 moduleCode: moduleCode,
-                uploader: uploaderName,
-                provenanceHash: ledgerReceipt.blockHash,
                 status: 'duplicate'
             });
         }
 
         console.log(`✅ Success! Block Hash: ${ledgerReceipt.blockHash}`);
-        console.log(`🔗 Cryptographically linked to Previous Hash: ${ledgerReceipt.previousHash}`);
 
         // --- STAGE 4: CONTEXT-AWARE ROUTING ---
         const uploadMetadata = {
@@ -138,26 +135,29 @@ app.post('/api/ingest', upload.single('gradingSheet'), async (req, res) => {
             isRecorrection: isRecorrection
         };
 
-        let handoffResult;
+        let syncResponseMsg = '';
+        let syncStatusVal = 'held-locally';
 
         if (isRecorrection) {
-            console.log(`⚠️ Context Routing: Special Concern flagged. Routing directly to Component 2 (Bypassing BOE review)...`);
-            handoffResult = await pushToBOEDirect(uploadMetadata, standardizedJson);
+            console.log(`⚠️ Context Routing: Special Concern flagged. Routing directly to Component 2...`);
+            const handoffResult = await pushToBOEDirect(uploadMetadata, standardizedJson);
+            syncResponseMsg = handoffResult.message;
+            syncStatusVal = handoffResult.status;
         } else {
-            console.log(`🚀 Standard Routing: Sending payload to Component 2 BOE Layer for review...`);
-            handoffResult = await pushToBOE(uploadMetadata, standardizedJson);
+            console.log(`🔒 Data stored locally in Component 3 private ledger. Awaiting BOE window lock for auto-handoff.`);
+            syncResponseMsg = 'Data sealed in local ledger. Handoff deferred until BOE Review window threshold.';
+            syncStatusVal = 'held-locally';
         }
 
-        // Return final receipt to the React UI
         res.status(200).json({
-            message: isRecorrection ? 'Special Concern routed directly to Component 2!' : 'Standard BOE Routing successful!',
+            message: 'Data securely anchored in local ledger.',
             fileName: req.file.originalname,
             moduleCode: moduleCode,
             recordCount: standardizedJson.length,
             provenanceHash: ledgerReceipt.blockHash,
             status: 'new',
-            syncStatus: handoffResult.status,
-            syncMessage: handoffResult.message
+            syncStatus: syncStatusVal,
+            syncMessage: syncResponseMsg
         });
 
     } catch (error) {
@@ -182,7 +182,6 @@ app.get('/api/verify/:studentId', (req, res) => {
 
         let latestRecordsMap = {};
 
-        // Loop through the ledger to find the most recent grades for the student
         ledger.forEach(block => {
             const studentRecord = block.data.find(row => row.candidateId.toUpperCase() === studentId);
             if (studentRecord) {
@@ -214,9 +213,9 @@ app.get('/api/verify/:studentId', (req, res) => {
 });
 
 // ============================================================================
-// MODULE STATUS API (For Frontend Timeline Lock)
+// MODULE STATUS API (Evaluates time-gates and triggers automatic BOE handoff)
 // ============================================================================
-app.get('/api/module-status/:moduleCode', (req, res) => {
+app.get('/api/module-status/:moduleCode', async (req, res) => {
     try {
         const targetModule = req.params.moduleCode.toUpperCase();
         
@@ -226,21 +225,55 @@ app.get('/api/module-status/:moduleCode', (req, res) => {
         }
         const ledger = JSON.parse(rawLedger);
         
-        // Find the very first time this module was uploaded
         const firstUpload = ledger.find(block => block.moduleCode === targetModule);
         
-        if (firstUpload) {
-            res.status(200).json({ isNew: false, firstUploadTime: firstUpload.timestamp });
-        } else {
-            res.status(200).json({ isNew: true });
+        if (!firstUpload) {
+            return res.status(200).json({ isNew: true });
         }
+
+        const policy = getPolicyConfig();
+        const firstUploadDate = new Date(firstUpload.timestamp);
+        const currentDate = new Date();
+        const timePassed = getTimePassed(firstUploadDate, currentDate, policy.timeUnit);
+
+        const stdWindow = Number(policy.standardUploadWindow);
+        const boeWindow = Number(policy.boeReviewWindow);
+
+        // AUTOMATIC DEFERRED HANDOFF AT FIRST LOCK (Phase Transition)
+        if (timePassed >= stdWindow && timePassed < boeWindow) {
+            const latestBlock = ledger.filter(b => b.moduleCode === targetModule).pop();
+            
+            if (latestBlock && !latestBlock.handedOffToBOE) {
+                console.log(`\n🚀 [Auto-Handoff Trigger] Module ${targetModule} crossed Standard Window threshold (${timePassed} ${policy.timeUnit}). Automatically pushing to BOE...`);
+                
+                try {
+                    await pushToBOE({
+                        provenanceHash: latestBlock.blockHash,
+                        moduleCode: targetModule,
+                        uploader: latestBlock.uploader,
+                        isRecorrection: false
+                    }, latestBlock.data);
+
+                    latestBlock.handedOffToBOE = true;
+                    fs.writeFileSync(ledgerPath, JSON.stringify(ledger, null, 2));
+                    console.log(`✅ Automatic BOE Handoff successful for module ${targetModule}!`);
+                } catch (handoffErr) {
+                    console.error(`❌ Automatic BOE Handoff failed:`, handoffErr.message);
+                }
+            }
+        }
+
+        res.status(200).json({ 
+            isNew: false, 
+            firstUploadTime: firstUpload.timestamp,
+            timePassed: timePassed,
+            currentPhase: timePassed < stdWindow ? 'Standard' : (timePassed < boeWindow ? 'BOE' : 'Appeals')
+        });
+
     } catch (error) {
+        console.error("Module Status Error:", error);
         res.status(500).json({ error: "Failed to fetch module status" });
     }
-});
-
-app.listen(port, () => {
-    console.log(`🚀 Silent Bridge Middleware running on http://localhost:${port}`);
 });
 
 // ============================================================================
@@ -253,7 +286,6 @@ app.get('/api/policy', (req, res) => {
 app.post('/api/policy', (req, res) => {
     try {
         const newPolicy = req.body;
-        // Write the new policy directly to system-config.json
         fs.writeFileSync(configPath, JSON.stringify(newPolicy, null, 2));
         console.log(`\n⚙️ Admin updated system policy:`, newPolicy);
         res.status(200).json({ success: true, message: "System policy updated successfully!" });
@@ -261,4 +293,65 @@ app.post('/api/policy', (req, res) => {
         console.error("Failed to update policy:", error);
         res.status(500).json({ error: "Failed to update configuration." });
     }
+});
+
+// ============================================================================
+// AUTOMATIC BACKGROUND DEFERRED HANDOFF TO COMPONENT 2
+// ============================================================================
+setInterval(async () => {
+    try {
+        if (!fs.existsSync(ledgerPath)) return;
+        const rawLedger = fs.readFileSync(ledgerPath);
+        const ledger = JSON.parse(rawLedger);
+        if (ledger.length === 0) return;
+
+        const policy = getPolicyConfig();
+        const stdWindow = Number(policy.standardUploadWindow);
+        const boeWindow = Number(policy.boeReviewWindow);
+        const currentDate = new Date();
+
+        // Find unique modules in ledger
+        const modules = [...new Set(ledger.map(b => b.moduleCode))];
+
+        for (const targetModule of modules) {
+            const firstUpload = ledger.find(b => b.moduleCode === targetModule);
+            if (!firstUpload) continue;
+
+            const timePassed = getTimePassed(new Date(firstUpload.timestamp), currentDate, policy.timeUnit);
+
+            // Trigger handoff the exact second the standard window elapses and BOE review starts
+            if (timePassed >= stdWindow && timePassed < boeWindow) {
+                const latestBlock = ledger.filter(b => b.moduleCode === targetModule).pop();
+
+                if (latestBlock && !latestBlock.handedOffToBOE) {
+                    console.log(`\n🚀 [Auto-Handoff Trigger] Module ${targetModule} crossed Standard Window (${timePassed} ${policy.timeUnit}). Automatically pushing to BOE...`);
+                    
+                    try {
+                        await pushToBOE({
+                            provenanceHash: latestBlock.blockHash,
+                            moduleCode: targetModule,
+                            uploader: latestBlock.uploader,
+                            isRecorrection: false
+                        }, latestBlock.data);
+
+                        // Mark as handed off in local ledger so it only fires once
+                        latestBlock.handedOffToBOE = true;
+                        fs.writeFileSync(ledgerPath, JSON.stringify(ledger, null, 2));
+                        console.log(`✅ Automatic BOE Handoff successfully completed for module ${targetModule}!`);
+                    } catch (handoffErr) {
+                        console.error(`❌ Automatic BOE Handoff failed:`, handoffErr.message);
+                    }
+                }
+            }
+        }
+    } catch (err) {
+        console.error("Background Watcher Error:", err.message);
+    }
+}, 5000); // Check every 5 seconds
+
+// ============================================================================
+// SERVER LISTENER
+// ============================================================================
+app.listen(port, () => {
+    console.log(`🚀 Silent Bridge Middleware running on http://localhost:${port}`);
 });

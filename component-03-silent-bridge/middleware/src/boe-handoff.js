@@ -7,15 +7,15 @@ const axios = require('axios');
  * @param {Array} extractedData - The JSON array of student grades parsed by SheetJS
  */
 async function pushToBOE(uploadReceipt, extractedData) {
-    // Fallback to our mock server if the real Component 2 isn't ready
+    // Pointing directly to Component 2 running on port 5001
     const COMPONENT_2_ENDPOINT = 'http://localhost:5001/api/boe/ingest';
 
-    // This is the standardized contract you are establishing with Component 2
     const payload = {
         metadata: {
             provenanceHash: uploadReceipt.provenanceHash,
             moduleCode: uploadReceipt.moduleCode,
             uploaderName: uploadReceipt.uploader,
+            isRecorrection: uploadReceipt.isRecorrection,
             timestamp: new Date().toISOString(),
             source: "COMPONENT_3_SILENT_BRIDGE"
         },
@@ -23,14 +23,13 @@ async function pushToBOE(uploadReceipt, extractedData) {
     };
 
     try {
-        console.log(`\n🚀 Initiating Handoff for ${uploadReceipt.moduleCode}...`);
+        console.log(`\n🚀 Initiating BOE Handoff for ${uploadReceipt.moduleCode} to ${COMPONENT_2_ENDPOINT}...`);
         
         const response = await axios.post(COMPONENT_2_ENDPOINT, payload, {
-            // Set a strict timeout so your frontend doesn't hang forever if Component 2 is offline
             timeout: 5000 
         });
 
-        console.log('✅ Handoff Successful: Component 2 acknowledged receipt.');
+        console.log('✅ Handoff Successful: Component 2 acknowledged and stored record.');
         return { 
             success: true, 
             status: 'synced',
@@ -38,13 +37,12 @@ async function pushToBOE(uploadReceipt, extractedData) {
         };
 
     } catch (error) {
-        console.error('❌ Handoff Failed:', error.message);
+        console.error('❌ BOE Handoff Failed:', error.response?.data || error.message);
         
-        // Graceful degradation: The data is safe in your private ledger
         return { 
             success: false, 
             status: 'queued',
-            message: 'BOE layer unreachable. Data secured in local ledger and queued for sync.' 
+            message: 'BOE layer unreachable. Data secured in local ledger.' 
         };
     }
 }
