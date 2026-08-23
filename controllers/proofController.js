@@ -4,7 +4,9 @@ const path = require("path");
 const { ethers } = require("ethers");
 
 const {
-    buildMerkleTree
+    buildMerkleTree,
+    getMerkleProof,
+    verifyMerkleProof
 } = require("../utils/merkle");
 
 const {
@@ -12,18 +14,23 @@ const {
     getFromIPFS
 } = require("../utils/ipfs");
 
+
 // =====================================================
 // LOAD SMART CONTRACT ABI
 // =====================================================
 
 const contractArtifact = JSON.parse(
     fs.readFileSync(
-        path.join(__dirname, "ProofStorage.json"),
+        path.join(
+            __dirname,
+            "ProofStorage.json"
+        ),
         "utf8"
     )
 );
 
-const CONTRACT_ABI = contractArtifact.abi;
+const CONTRACT_ABI =
+    contractArtifact.abi;
 
 
 // =====================================================
@@ -40,15 +47,23 @@ const BLOCKCHAIN_RPC_URL =
 // =====================================================
 // COMPONENT 2 HASH VERIFICATION
 // =====================================================
+//
+// Must exactly match Component 2:
+//
+// candidateId|moduleCode|marks|grade|version
+//
+// =====================================================
 
 function verifyComponent2Hash(record) {
-    const hashData = `
-      ${record.candidateId}
-      ${record.moduleCode}
-      ${record.marks}
-      ${record.grade}
-      ${record.version}
-    `;
+
+    const hashData = [
+        record.candidateId,
+        record.moduleCode,
+        record.marks,
+        record.grade,
+        record.version
+    ].join("|");
+
 
     return crypto
         .createHash("sha256")
@@ -60,613 +75,692 @@ function verifyComponent2Hash(record) {
 // =====================================================
 // GENERATE PROOF MANIFEST
 // =====================================================
+//
+// POST /generate-proof
+//
+// POST /blockchain/storeHash
+//
+// =====================================================
 
-exports.generateProofManifest = async (req, res) => {
-    try {
+exports.generateProofManifest =
+    async (req, res) => {
 
-        // =================================================
-        // GET RECORDS FROM REQUEST
-        // =================================================
+        try {
 
-        const { records } = req.body;
-
-        if (
-            !records ||
-            !Array.isArray(records) ||
-            records.length === 0
-        ) {
-            return res.status(400).json({
-                success: false,
-                message:
-                    "Payload missing valid academic records array."
-            });
-        }
+            const {
+                records
+            } = req.body;
 
 
-        // =================================================
-        // PHASE 1 — ACCEPT & VALIDATE HASHES
-        // =================================================
-const finalizedRecords = records.map((record) => {
+            if (
+                !records ||
+                !Array.isArray(records) ||
+                records.length === 0
+            ) {
 
-    // Validate required fields
-    if (
-        !record.candidateId ||
-        !record.moduleCode ||
-        record.marks === undefined ||
-        !record.grade ||
-        record.version === undefined ||
-        !record.hash
-    ) {
-        throw new Error(
-            `Incomplete record received for candidate ${record.candidateId || "unknown"}`
-        );
-    }
-
-    // Recalculate the expected Component 2 hash
-    const expectedHash = verifyComponent2Hash(record);
-
-    // Reject the entire batch if the hash is incorrect
-    if (record.hash !== expectedHash) {
-        throw new Error(
-            `Hash verification failed for candidate ${record.candidateId}`
-        );
-    }
-
-    return {
-        candidateId: record.candidateId,
-        moduleCode: record.moduleCode,
-        marks: Number(record.marks),
-        grade: record.grade,
-        version: Number(record.version),
-        hash: record.hash
-    };
-});
+                return res.status(400).json({
+                    success: false,
+                    message:
+                        "Payload missing valid academic records array."
+                });
+            }
 
 
-        // =================================================
-        // EXTRACT LEAF HASHES
-        // =================================================
+            // =================================================
+            // PHASE 1 — VALIDATE COMPONENT 2 RECORDS
+            // =================================================
 
-        const leafHashes =
-            finalizedRecords.map(
-                (record) => record.hash
+            const finalizedRecords =
+                records.map((record) => {
+
+                    if (
+                        !record.candidateId ||
+                        !record.moduleCode ||
+                        record.marks === undefined ||
+                        !record.grade ||
+                        record.version === undefined ||
+                        !record.hash
+                    ) {
+
+                        throw new Error(
+                            `Incomplete record received for candidate ${record.candidateId || "unknown"}`
+                        );
+                    }
+
+
+                    const expectedHash =
+                        verifyComponent2Hash(record);
+
+
+                    if (
+                        record.hash !==
+                        expectedHash
+                    ) {
+
+                        throw new Error(
+                            `Hash verification failed for candidate ${record.candidateId}`
+                        );
+                    }
+
+
+                    return {
+
+                        candidateId:
+                            record.candidateId,
+
+                        moduleCode:
+                            record.moduleCode,
+
+                        marks:
+                            Number(record.marks),
+
+                        grade:
+                            record.grade,
+
+                        version:
+                            Number(record.version),
+
+                        hash:
+                            record.hash
+                    };
+
+                });
+
+
+            // =================================================
+            // EXTRACT MERKLE LEAF HASHES
+            // =================================================
+
+            const leafHashes =
+                finalizedRecords.map(
+                    (record) =>
+                        record.hash
+                );
+
+
+            // =================================================
+            // BUILD MERKLE ROOT
+            // =================================================
+
+            const globalMerkleRoot =
+                buildMerkleTree(
+                    leafHashes
+                );
+
+
+            if (!globalMerkleRoot) {
+
+                return res.status(500).json({
+                    success: false,
+                    message:
+                        "Merkle Root generation failed."
+                });
+            }
+
+
+            console.log(
+                "Generated Merkle Root:",
+                globalMerkleRoot
             );
 
 
-        // =================================================
-        // PHASE 2 — BUILD MERKLE ROOT
-        // =================================================
+            // =================================================
+            // CREATE IPFS PAYLOAD
+            // =================================================
 
-        const globalMerkleRoot =
-            buildMerkleTree(leafHashes);
+            const ipfsPayload = {
 
-        if (!globalMerkleRoot) {
-            return res.status(500).json({
-                success: false,
-                message:
-                    "Merkle Root generation failed."
-            });
-        }
+                recordsWithHashes:
+                    finalizedRecords,
 
-        console.log(
-            "Generated Merkle Root:",
-            globalMerkleRoot
-        );
-
-
-        // =================================================
-        // PHASE 3 — CREATE IPFS PAYLOAD
-        // =================================================
-
-        const ipfsPayload = {
-            recordsWithHashes:
-                finalizedRecords,
-
-            merkleRoot:
-                globalMerkleRoot,
-
-            totalRecords:
-                finalizedRecords.length,
-
-            generatedAt:
-                new Date().toISOString()
-        };
-
-
-        // =================================================
-        // UPLOAD PROOF MANIFEST TO IPFS
-        // =================================================
-
-        console.log(
-            "Uploading grade proof manifest to IPFS via Pinata..."
-        );
-
-        const ipfsCID =
-            await uploadToIPFS(ipfsPayload);
-
-        console.log(
-            "Successfully uploaded to IPFS."
-        );
-
-        console.log(
-            "IPFS CID:",
-            ipfsCID
-        );
-
-
-        // =================================================
-        // PHASE 8 — ANCHOR DATA ON BLOCKCHAIN
-        // =================================================
-
-        console.log(
-            "Connecting to local private blockchain node..."
-        );
-
-        const provider =
-            new ethers.JsonRpcProvider(
-                BLOCKCHAIN_RPC_URL
-            );
-
-
-        // =================================================
-        // CHECK CONTRACT DEPLOYMENT
-        // =================================================
-
-        const contractCode =
-            await provider.getCode(
-                CONTRACT_ADDRESS
-            );
-
-        if (contractCode === "0x") {
-            throw new Error(
-                `No smart contract deployed at ${CONTRACT_ADDRESS} on ${BLOCKCHAIN_RPC_URL}`
-            );
-        }
-
-
-        // =================================================
-        // GET HARDHAT SIGNER
-        // =================================================
-
-        const signer =
-            await provider.getSigner(0);
-
-
-        // =================================================
-        // CREATE CONTRACT INSTANCE
-        // =================================================
-
-        const proofStorageContract =
-            new ethers.Contract(
-                CONTRACT_ADDRESS,
-                CONTRACT_ABI,
-                signer
-            );
-
-
-        // =================================================
-        // FORMAT MERKLE ROOT
-        // =================================================
-
-        const formattedMerkleRoot =
-            globalMerkleRoot.startsWith("0x")
-                ? globalMerkleRoot
-                : `0x${globalMerkleRoot}`;
-
-
-        console.log(
-            `Submitting anchoring transaction for Merkle Root: ${formattedMerkleRoot}`
-        );
-
-
-        // =================================================
-        // STORE PROOF ON BLOCKCHAIN
-        // =================================================
-
-        const tx =
-            await proofStorageContract.storeProof(
-                formattedMerkleRoot,
-                ipfsCID
-            );
-
-        console.log(
-            `Transaction sent! Hash: ${tx.hash}. Waiting for block confirmation...`
-        );
-
-
-        // =================================================
-        // WAIT FOR TRANSACTION CONFIRMATION
-        // =================================================
-
-        const receipt =
-            await tx.wait();
-
-        console.log(
-            "Transaction successfully anchored in block number:",
-            receipt.blockNumber
-        );
-
-
-        // =================================================
-        // PHASE 9 — COMPLETE RESPONSE
-        // =================================================
-
-        return res.status(200).json({
-            success: true,
-
-            message:
-                "Cryptographic layer proofs successfully minted and permanently anchored to blockchain ledger.",
-
-            blockchainTx: {
-                transactionHash:
-                    tx.hash,
-
-                blockNumber:
-                    receipt.blockNumber,
-
-                contractAddress:
-                    CONTRACT_ADDRESS,
-
-                anchoredBy:
-                    receipt.from
-            },
-
-            proofData: {
                 merkleRoot:
                     globalMerkleRoot,
 
-                ipfsCID:
-                    ipfsCID,
-
-                totalRecordsProcessed:
+                totalRecords:
                     finalizedRecords.length,
 
-                storageStatus:
-                    "Decentralized IPFS Immutable Storage Layer Confirmed",
-
-                blockchainReady:
-                    true
-            }
-        });
-
-    } catch (error) {
-
-        console.error(
-            "Pipeline failure in integrated backend generation:",
-            error
-        );
-
-        return res.status(500).json({
-            success: false,
-
-            message:
-                "Internal server processing failure or blockchain anchoring rejection.",
-
-            error:
-                error.message
-        });
-    }
-};
+                generatedAt:
+                    new Date().toISOString()
+            };
 
 
-// =====================================================
-// READ ANCHORED PROOF FROM BLOCKCHAIN
-// =====================================================
+            // =================================================
+            // UPLOAD TO IPFS
+            // =================================================
 
-exports.getAnchoredProof = async (req, res) => {
-    try {
-
-        // =================================================
-        // GET MERKLE ROOT FROM URL
-        // =================================================
-
-        let { merkleRoot } =
-            req.params;
-
-
-        // Add 0x prefix if needed
-        if (!merkleRoot.startsWith("0x")) {
-            merkleRoot =
-                `0x${merkleRoot}`;
-        }
-
-
-        // =================================================
-        // VALIDATE MERKLE ROOT
-        // =================================================
-
-        if (
-            !/^0x[a-fA-F0-9]{64}$/.test(
-                merkleRoot
-            )
-        ) {
-            return res.status(400).json({
-                success: false,
-                message:
-                    "Invalid Merkle Root format."
-            });
-        }
-
-
-        console.log(
-            "Reading proof from blockchain..."
-        );
-
-        console.log(
-            "Merkle Root:",
-            merkleRoot
-        );
-
-
-        // =================================================
-        // READ-ONLY BLOCKCHAIN CONNECTION
-        // =================================================
-
-        const provider =
-            new ethers.JsonRpcProvider(
-                BLOCKCHAIN_RPC_URL
+            console.log(
+                "Uploading grade proof manifest to IPFS via Pinata..."
             );
 
 
-        // =================================================
-        // CHECK CONTRACT DEPLOYMENT
-        // =================================================
-
-        const contractCode =
-            await provider.getCode(
-                CONTRACT_ADDRESS
-            );
-
-        if (contractCode === "0x") {
-            throw new Error(
-                `No smart contract deployed at ${CONTRACT_ADDRESS} on ${BLOCKCHAIN_RPC_URL}`
-            );
-        }
+            const ipfsCID =
+                await uploadToIPFS(
+                    ipfsPayload
+                );
 
 
-        // =================================================
-        // CREATE READ-ONLY CONTRACT INSTANCE
-        // =================================================
-
-        const proofStorageContract =
-            new ethers.Contract(
-                CONTRACT_ADDRESS,
-                CONTRACT_ABI,
-                provider
+            console.log(
+                "Successfully uploaded to IPFS."
             );
 
 
-        // =================================================
-        // READ PROOF STORED FOR MERKLE ROOT
-        // =================================================
-
-        const proof =
-            await proofStorageContract.getProof(
-                merkleRoot
-            );
-
-
-        // =================================================
-        // EXTRACT STORED VALUES
-        // =================================================
-
-        const ipfsCID =
-            proof[0];
-
-        const timestamp =
-            proof[1];
-
-        const uploadedBy =
-            proof[2];
-
-
-        // =================================================
-        // RETURN BLOCKCHAIN PROOF
-        // =================================================
-
-        return res.status(200).json({
-            success: true,
-
-            proof: {
-                merkleRoot:
-                    merkleRoot,
-
-                ipfsCID:
-                    ipfsCID,
-
-                timestamp:
-                    timestamp.toString(),
-
-                uploadedBy:
-                    uploadedBy
-            }
-        });
-
-    } catch (error) {
-
-        console.error(
-            "Blockchain read error:",
-            error
-        );
-
-        return res.status(404).json({
-            success: false,
-
-            message:
-                "No blockchain proof found for this Merkle Root.",
-
-            error:
-                error.message
-        });
-    }
-};
-
-
-// =====================================================
-// GET FINALIZED PROOF DATA FROM IPFS
-// FOR COMPONENT 4
-// =====================================================
-
-exports.getProofData = async (req, res) => {
-    try {
-
-        // =================================================
-        // GET MERKLE ROOT FROM URL
-        // =================================================
-
-        let { merkleRoot } =
-            req.params;
-
-
-        // Add 0x prefix if needed
-        if (!merkleRoot.startsWith("0x")) {
-            merkleRoot =
-                `0x${merkleRoot}`;
-        }
-
-
-        // =================================================
-        // VALIDATE MERKLE ROOT
-        // =================================================
-
-        if (
-            !/^0x[a-fA-F0-9]{64}$/.test(
-                merkleRoot
-            )
-        ) {
-            return res.status(400).json({
-                success: false,
-                message:
-                    "Invalid Merkle Root format."
-            });
-        }
-
-
-        console.log(
-            "Retrieving finalized proof data..."
-        );
-
-        console.log(
-            "Requested Merkle Root:",
-            merkleRoot
-        );
-
-
-        // =================================================
-        // CONNECT TO BLOCKCHAIN
-        // =================================================
-
-        const provider =
-            new ethers.JsonRpcProvider(
-                BLOCKCHAIN_RPC_URL
-            );
-
-
-        // =================================================
-        // CHECK CONTRACT DEPLOYMENT
-        // =================================================
-
-        const contractCode =
-            await provider.getCode(
-                CONTRACT_ADDRESS
-            );
-
-        if (contractCode === "0x") {
-            throw new Error(
-                `No smart contract deployed at ${CONTRACT_ADDRESS} on ${BLOCKCHAIN_RPC_URL}`
-            );
-        }
-
-
-        // =================================================
-        // READ PROOF FROM BLOCKCHAIN
-        // =================================================
-
-        const proofStorageContract =
-            new ethers.Contract(
-                CONTRACT_ADDRESS,
-                CONTRACT_ABI,
-                provider
-            );
-
-
-        const proof =
-            await proofStorageContract.getProof(
-                merkleRoot
-            );
-
-
-        // =================================================
-        // EXTRACT OFFICIAL BLOCKCHAIN VALUES
-        // =================================================
-
-        const ipfsCID =
-            proof[0];
-
-        const timestamp =
-            proof[1];
-
-        const uploadedBy =
-            proof[2];
-
-
-        // =================================================
-        // RETRIEVE JSON FROM IPFS
-        // =================================================
-
-        const ipfsData =
-            await getFromIPFS(
+            console.log(
+                "IPFS CID:",
                 ipfsCID
             );
 
 
-        // =================================================
-        // VERIFY IPFS DATA MATCHES BLOCKCHAIN ROOT
-        // =================================================
+            // =================================================
+            // CONNECT TO BLOCKCHAIN
+            // =================================================
 
-        if (
-            !ipfsData ||
-            !ipfsData.merkleRoot
-        ) {
+            console.log(
+                "Connecting to local private blockchain node..."
+            );
+
+
+            const provider =
+                new ethers.JsonRpcProvider(
+                    BLOCKCHAIN_RPC_URL
+                );
+
+
+            // =================================================
+            // CHECK CONTRACT DEPLOYMENT
+            // =================================================
+
+            const contractCode =
+                await provider.getCode(
+                    CONTRACT_ADDRESS
+                );
+
+
+            if (
+                contractCode === "0x"
+            ) {
+
+                throw new Error(
+                    `No smart contract deployed at ${CONTRACT_ADDRESS} on ${BLOCKCHAIN_RPC_URL}`
+                );
+            }
+
+
+            // =================================================
+            // GET SIGNER
+            // =================================================
+
+            const signer =
+                await provider.getSigner(0);
+
+
+            // =================================================
+            // CONTRACT INSTANCE
+            // =================================================
+
+            const proofStorageContract =
+                new ethers.Contract(
+                    CONTRACT_ADDRESS,
+                    CONTRACT_ABI,
+                    signer
+                );
+
+
+            // =================================================
+            // FORMAT MERKLE ROOT
+            // =================================================
+
+            const formattedMerkleRoot =
+                globalMerkleRoot.startsWith("0x")
+                    ? globalMerkleRoot
+                    : `0x${globalMerkleRoot}`;
+
+
+            console.log(
+                `Submitting anchoring transaction for Merkle Root: ${formattedMerkleRoot}`
+            );
+
+
+            // =================================================
+            // STORE PROOF
+            // =================================================
+
+            const tx =
+                await proofStorageContract.storeProof(
+                    formattedMerkleRoot,
+                    ipfsCID
+                );
+
+
+            console.log(
+                `Transaction sent! Hash: ${tx.hash}. Waiting for block confirmation...`
+            );
+
+
+            // =================================================
+            // WAIT FOR CONFIRMATION
+            // =================================================
+
+            const receipt =
+                await tx.wait();
+
+
+            console.log(
+                "Transaction successfully anchored in block number:",
+                receipt.blockNumber
+            );
+
+
+            // =================================================
+            // RETURN RESPONSE
+            // =================================================
+
+            return res.status(200).json({
+
+                success: true,
+
+                message:
+                    "Cryptographic layer proofs successfully minted and permanently anchored to blockchain ledger.",
+
+
+                blockchainTx: {
+
+                    transactionHash:
+                        tx.hash,
+
+                    blockNumber:
+                        receipt.blockNumber,
+
+                    contractAddress:
+                        CONTRACT_ADDRESS,
+
+                    anchoredBy:
+                        receipt.from
+                },
+
+
+                proofData: {
+
+                    merkleRoot:
+                        globalMerkleRoot,
+
+                    ipfsCID:
+                        ipfsCID,
+
+                    totalRecordsProcessed:
+                        finalizedRecords.length,
+
+                    storageStatus:
+                        "Decentralized IPFS Immutable Storage Layer Confirmed",
+
+                    blockchainReady:
+                        true
+                }
+
+            });
+
+        } catch (error) {
+
+            console.error(
+                "Pipeline failure in integrated backend generation:",
+                error
+            );
+
+
             return res.status(500).json({
+
                 success: false,
+
                 message:
-                    "IPFS data does not contain a Merkle Root."
+                    "Internal server processing failure or blockchain anchoring rejection.",
+
+                error:
+                    error.message
             });
         }
+    };
 
 
-        const normalizedIPFSRoot =
-            ipfsData.merkleRoot.startsWith("0x")
-                ? ipfsData.merkleRoot
-                : `0x${ipfsData.merkleRoot}`;
+// =====================================================
+// GET LATEST ANCHORED PROOF
+// =====================================================
+//
+// GET /proof/latest
+//
+// IMPORTANT:
+// We do NOT call getLatestProof() on the smart contract.
+//
+// Instead, we read the most recent ProofAnchored event.
+// Your current ABI already contains this event.
+//
+// This avoids the old ABI mismatch and keeps the existing
+// smart contract storage model unchanged.
+// =====================================================
+
+exports.getLatestProof =
+    async (req, res) => {
+
+        try {
+
+            console.log(
+                "Reading latest anchored proof from blockchain event..."
+            );
 
 
-        if (
-            normalizedIPFSRoot.toLowerCase() !==
-            merkleRoot.toLowerCase()
-        ) {
-            return res.status(409).json({
+            // =================================================
+            // CONNECT TO BLOCKCHAIN
+            // =================================================
+
+            const provider =
+                new ethers.JsonRpcProvider(
+                    BLOCKCHAIN_RPC_URL
+                );
+
+
+            // =================================================
+            // CHECK CONTRACT DEPLOYMENT
+            // =================================================
+
+            const contractCode =
+                await provider.getCode(
+                    CONTRACT_ADDRESS
+                );
+
+
+            if (
+                contractCode === "0x"
+            ) {
+
+                throw new Error(
+                    `No smart contract deployed at ${CONTRACT_ADDRESS} on ${BLOCKCHAIN_RPC_URL}`
+                );
+            }
+
+
+            // =================================================
+            // READ-ONLY CONTRACT
+            // =================================================
+
+            const proofStorageContract =
+                new ethers.Contract(
+                    CONTRACT_ADDRESS,
+                    CONTRACT_ABI,
+                    provider
+                );
+
+
+            // =================================================
+            // GET PROOF ANCHORED EVENTS
+            // =================================================
+
+            const filter =
+                proofStorageContract.filters.ProofAnchored();
+
+
+            const events =
+                await proofStorageContract.queryFilter(
+                    filter,
+                    0,
+                    "latest"
+                );
+
+
+            // =================================================
+            // NO ANCHORED PROOF
+            // =================================================
+
+            if (
+                !events ||
+                events.length === 0
+            ) {
+
+                return res.status(404).json({
+
+                    success: false,
+
+                    message:
+                        "No latest anchored proof is available."
+                });
+            }
+
+
+            // =================================================
+            // GET MOST RECENT EVENT
+            // =================================================
+
+            const latestEvent =
+                events[events.length - 1];
+
+
+            // =================================================
+            // READ EVENT VALUES
+            // =================================================
+
+            const eventArgs =
+                latestEvent.args;
+
+
+            const merkleRoot =
+                eventArgs?.merkleRoot ||
+                eventArgs?.[0];
+
+
+            const ipfsCID =
+                eventArgs?.ipfsCID ||
+                eventArgs?.[1];
+
+
+            const uploadedBy =
+                eventArgs?.uploadedBy ||
+                eventArgs?.[2];
+
+
+            // =================================================
+            // VALIDATE EVENT DATA
+            // =================================================
+
+            if (
+                !merkleRoot ||
+                !ipfsCID
+            ) {
+
+                throw new Error(
+                    "Latest ProofAnchored event did not contain a Merkle Root and IPFS CID."
+                );
+            }
+
+
+            // =================================================
+            // GET BLOCK TIMESTAMP
+            // =================================================
+
+            let timestamp =
+                null;
+
+
+            try {
+
+                const block =
+                    await provider.getBlock(
+                        latestEvent.blockNumber
+                    );
+
+
+                if (block) {
+
+                    timestamp =
+                        block.timestamp;
+                }
+
+            } catch (timestampError) {
+
+                console.warn(
+                    "Unable to read anchor block timestamp:",
+                    timestampError.message
+                );
+            }
+
+
+            // =================================================
+            // RETURN LATEST PROOF
+            // =================================================
+
+            return res.status(200).json({
+
+                success: true,
+
+                proof: {
+
+                    merkleRoot:
+                        merkleRoot,
+
+                    ipfsCID:
+                        ipfsCID,
+
+                    timestamp:
+                        timestamp !== null
+                            ? timestamp.toString()
+                            : null,
+
+                    uploadedBy:
+                        uploadedBy,
+
+                    blockNumber:
+                        latestEvent.blockNumber,
+
+                    transactionHash:
+                        latestEvent.transactionHash
+                }
+
+            });
+
+        } catch (error) {
+
+            console.error(
+                "Latest blockchain proof error:",
+                error
+            );
+
+
+            return res.status(500).json({
+
                 success: false,
+
                 message:
-                    "IPFS data does not match the blockchain Merkle Root.",
-                blockchainMerkleRoot:
-                    merkleRoot,
-                ipfsMerkleRoot:
-                    normalizedIPFSRoot
+                    "Unable to retrieve the latest anchored proof.",
+
+                error:
+                    error.message
             });
         }
+    };
 
 
-        // =================================================
-        // RETURN FINALIZED DATA TO COMPONENT 4
-        // =================================================
+// =====================================================
+// READ ANCHORED PROOF BY ROOT
+// =====================================================
+//
+// GET /proof/:merkleRoot
+//
+// =====================================================
 
-        return res.status(200).json({
-            success: true,
+exports.getAnchoredProof =
+    async (req, res) => {
 
-            verificationSource: {
-                blockchain: {
+        try {
+
+            let {
+                merkleRoot
+            } = req.params;
+
+
+            if (
+                !merkleRoot.startsWith("0x")
+            ) {
+
+                merkleRoot =
+                    `0x${merkleRoot}`;
+            }
+
+
+            if (
+                !/^0x[a-fA-F0-9]{64}$/.test(
+                    merkleRoot
+                )
+            ) {
+
+                return res.status(400).json({
+
+                    success: false,
+
+                    message:
+                        "Invalid Merkle Root format."
+                });
+            }
+
+
+            console.log(
+                "Reading proof from blockchain..."
+            );
+
+
+            console.log(
+                "Merkle Root:",
+                merkleRoot
+            );
+
+
+            const provider =
+                new ethers.JsonRpcProvider(
+                    BLOCKCHAIN_RPC_URL
+                );
+
+
+            const contractCode =
+                await provider.getCode(
+                    CONTRACT_ADDRESS
+                );
+
+
+            if (
+                contractCode === "0x"
+            ) {
+
+                throw new Error(
+                    `No smart contract deployed at ${CONTRACT_ADDRESS} on ${BLOCKCHAIN_RPC_URL}`
+                );
+            }
+
+
+            const proofStorageContract =
+                new ethers.Contract(
+                    CONTRACT_ADDRESS,
+                    CONTRACT_ABI,
+                    provider
+                );
+
+
+            const proof =
+                await proofStorageContract.getProof(
+                    merkleRoot
+                );
+
+
+            const ipfsCID =
+                proof[0];
+
+            const timestamp =
+                proof[1];
+
+            const uploadedBy =
+                proof[2];
+
+
+            return res.status(200).json({
+
+                success: true,
+
+                proof: {
+
                     merkleRoot:
                         merkleRoot,
 
@@ -679,26 +773,616 @@ exports.getProofData = async (req, res) => {
                     uploadedBy:
                         uploadedBy
                 }
-            },
 
-            data: ipfsData
-        });
+            });
 
-    } catch (error) {
+        } catch (error) {
 
-        console.error(
-            "Finalized proof data retrieval error:",
-            error
-        );
+            console.error(
+                "Blockchain read error:",
+                error
+            );
 
-        return res.status(500).json({
-            success: false,
 
-            message:
-                "Unable to retrieve finalized proof data from IPFS.",
+            return res.status(404).json({
 
-            error:
-                error.message
-        });
-    }
-};
+                success: false,
+
+                message:
+                    "No blockchain proof found for this Merkle Root.",
+
+                error:
+                    error.message
+            });
+        }
+    };
+
+
+// =====================================================
+// GET FINALIZED PROOF DATA FROM IPFS
+// =====================================================
+//
+// GET /proof/:merkleRoot/data
+//
+// =====================================================
+
+exports.getProofData =
+    async (req, res) => {
+
+        try {
+
+            let {
+                merkleRoot
+            } = req.params;
+
+
+            if (
+                !merkleRoot.startsWith("0x")
+            ) {
+
+                merkleRoot =
+                    `0x${merkleRoot}`;
+            }
+
+
+            if (
+                !/^0x[a-fA-F0-9]{64}$/.test(
+                    merkleRoot
+                )
+            ) {
+
+                return res.status(400).json({
+
+                    success: false,
+
+                    message:
+                        "Invalid Merkle Root format."
+                });
+            }
+
+
+            console.log(
+                "Retrieving finalized proof data..."
+            );
+
+
+            console.log(
+                "Requested Merkle Root:",
+                merkleRoot
+            );
+
+
+            const provider =
+                new ethers.JsonRpcProvider(
+                    BLOCKCHAIN_RPC_URL
+                );
+
+
+            const contractCode =
+                await provider.getCode(
+                    CONTRACT_ADDRESS
+                );
+
+
+            if (
+                contractCode === "0x"
+            ) {
+
+                throw new Error(
+                    `No smart contract deployed at ${CONTRACT_ADDRESS} on ${BLOCKCHAIN_RPC_URL}`
+                );
+            }
+
+
+            const proofStorageContract =
+                new ethers.Contract(
+                    CONTRACT_ADDRESS,
+                    CONTRACT_ABI,
+                    provider
+                );
+
+
+            const proof =
+                await proofStorageContract.getProof(
+                    merkleRoot
+                );
+
+
+            const ipfsCID =
+                proof[0];
+
+            const timestamp =
+                proof[1];
+
+            const uploadedBy =
+                proof[2];
+
+
+            // =================================================
+            // RETRIEVE IPFS DATA
+            // =================================================
+
+            const ipfsData =
+                await getFromIPFS(
+                    ipfsCID
+                );
+
+
+            // =================================================
+            // VALIDATE IPFS STRUCTURE
+            // =================================================
+
+            if (
+                !ipfsData ||
+                !ipfsData.merkleRoot
+            ) {
+
+                return res.status(500).json({
+
+                    success: false,
+
+                    message:
+                        "IPFS data does not contain a Merkle Root."
+                });
+            }
+
+
+            let normalizedIPFSRoot =
+                ipfsData.merkleRoot;
+
+
+            if (
+                !normalizedIPFSRoot.startsWith(
+                    "0x"
+                )
+            ) {
+
+                normalizedIPFSRoot =
+                    `0x${normalizedIPFSRoot}`;
+            }
+
+
+            // =================================================
+            // VERIFY BLOCKCHAIN ROOT == IPFS ROOT
+            // =================================================
+
+            if (
+                normalizedIPFSRoot.toLowerCase() !==
+                merkleRoot.toLowerCase()
+            ) {
+
+                return res.status(409).json({
+
+                    success: false,
+
+                    message:
+                        "IPFS data does not match the blockchain Merkle Root.",
+
+                    blockchainMerkleRoot:
+                        merkleRoot,
+
+                    ipfsMerkleRoot:
+                        normalizedIPFSRoot
+                });
+            }
+
+
+            // =================================================
+            // VALIDATE FINALIZED RECORD ARRAY
+            // =================================================
+
+            if (
+                !Array.isArray(
+                    ipfsData.recordsWithHashes
+                )
+            ) {
+
+                return res.status(500).json({
+
+                    success: false,
+
+                    message:
+                        "IPFS dataset does not contain a valid finalized record list."
+                });
+            }
+
+
+            return res.status(200).json({
+
+                success: true,
+
+                verificationSource: {
+
+                    blockchain: {
+
+                        merkleRoot:
+                            merkleRoot,
+
+                        ipfsCID:
+                            ipfsCID,
+
+                        timestamp:
+                            timestamp.toString(),
+
+                        uploadedBy:
+                            uploadedBy
+                    }
+
+                },
+
+                data:
+                    ipfsData
+            });
+
+        } catch (error) {
+
+            console.error(
+                "Finalized proof data retrieval error:",
+                error
+            );
+
+
+            return res.status(500).json({
+
+                success: false,
+
+                message:
+                    "Unable to retrieve finalized proof data from IPFS.",
+
+                error:
+                    error.message
+            });
+        }
+    };
+
+
+// =====================================================
+// GET STUDENT MERKLE PROOF
+// =====================================================
+//
+// POST /proof/merkle-proof
+//
+// =====================================================
+
+exports.getStudentMerkleProof =
+    async (req, res) => {
+
+        try {
+
+            const {
+                merkleRoot,
+                candidateId,
+                moduleCode
+            } = req.body;
+
+
+            if (
+                !merkleRoot ||
+                !candidateId ||
+                !moduleCode
+            ) {
+
+                return res.status(400).json({
+
+                    success: false,
+
+                    message:
+                        "merkleRoot, candidateId and moduleCode are required."
+                });
+            }
+
+
+            let formattedMerkleRoot =
+                merkleRoot;
+
+
+            if (
+                !formattedMerkleRoot.startsWith(
+                    "0x"
+                )
+            ) {
+
+                formattedMerkleRoot =
+                    `0x${formattedMerkleRoot}`;
+            }
+
+
+            if (
+                !/^0x[a-fA-F0-9]{64}$/.test(
+                    formattedMerkleRoot
+                )
+            ) {
+
+                return res.status(400).json({
+
+                    success: false,
+
+                    message:
+                        "Invalid Merkle Root format."
+                });
+            }
+
+
+            console.log(
+                "Generating student Merkle proof..."
+            );
+
+
+            console.log(
+                "Candidate ID:",
+                candidateId
+            );
+
+
+            console.log(
+                "Module Code:",
+                moduleCode
+            );
+
+
+            console.log(
+                "Merkle Root:",
+                formattedMerkleRoot
+            );
+
+
+            const provider =
+                new ethers.JsonRpcProvider(
+                    BLOCKCHAIN_RPC_URL
+                );
+
+
+            const contractCode =
+                await provider.getCode(
+                    CONTRACT_ADDRESS
+                );
+
+
+            if (
+                contractCode === "0x"
+            ) {
+
+                throw new Error(
+                    `No smart contract deployed at ${CONTRACT_ADDRESS} on ${BLOCKCHAIN_RPC_URL}`
+                );
+            }
+
+
+            const proofStorageContract =
+                new ethers.Contract(
+                    CONTRACT_ADDRESS,
+                    CONTRACT_ABI,
+                    provider
+                );
+
+
+            // =================================================
+            // GET CID FROM BLOCKCHAIN
+            // =================================================
+
+            const blockchainProof =
+                await proofStorageContract.getProof(
+                    formattedMerkleRoot
+                );
+
+
+            const ipfsCID =
+                blockchainProof[0];
+
+
+            // =================================================
+            // GET FINALIZED DATA FROM IPFS
+            // =================================================
+
+            const ipfsData =
+                await getFromIPFS(
+                    ipfsCID
+                );
+
+
+            if (
+                !ipfsData ||
+                !Array.isArray(
+                    ipfsData.recordsWithHashes
+                )
+            ) {
+
+                return res.status(500).json({
+
+                    success: false,
+
+                    message:
+                        "IPFS dataset does not contain valid finalized records."
+                });
+            }
+
+
+            // =================================================
+            // VERIFY IPFS ROOT == BLOCKCHAIN ROOT
+            // =================================================
+
+            let ipfsRoot =
+                ipfsData.merkleRoot;
+
+
+            if (
+                !ipfsRoot.startsWith("0x")
+            ) {
+
+                ipfsRoot =
+                    `0x${ipfsRoot}`;
+            }
+
+
+            if (
+                ipfsRoot.toLowerCase() !==
+                formattedMerkleRoot.toLowerCase()
+            ) {
+
+                return res.status(409).json({
+
+                    success: false,
+
+                    message:
+                        "IPFS Merkle Root does not match blockchain Merkle Root.",
+
+                    blockchainMerkleRoot:
+                        formattedMerkleRoot,
+
+                    ipfsMerkleRoot:
+                        ipfsRoot
+                });
+            }
+
+
+            // =================================================
+            // FIND TARGET RECORD
+            // =================================================
+
+            const recordIndex =
+                ipfsData.recordsWithHashes.findIndex(
+                    (record) =>
+                        record.candidateId ===
+                            candidateId &&
+                        record.moduleCode ===
+                            moduleCode
+                );
+
+
+            if (
+                recordIndex === -1
+            ) {
+
+                return res.status(404).json({
+
+                    success: false,
+
+                    message:
+                        "Student/module record not found in finalized dataset.",
+
+                    candidateId,
+
+                    moduleCode
+                });
+            }
+
+
+            // =================================================
+            // EXTRACT LEAF HASHES
+            // =================================================
+
+            const leafHashes =
+                ipfsData.recordsWithHashes.map(
+                    (record) =>
+                        record.hash
+                );
+
+
+            // =================================================
+            // BUILD PROOF
+            // =================================================
+
+            const proof =
+                getMerkleProof(
+                    leafHashes,
+                    recordIndex
+                );
+
+
+            const targetRecord =
+                ipfsData.recordsWithHashes[
+                    recordIndex
+                ];
+
+
+            // =================================================
+            // VERIFY PROOF
+            // =================================================
+
+            const proofIsValid =
+                verifyMerkleProof(
+                    targetRecord.hash,
+                    proof,
+                    ipfsData.merkleRoot
+                );
+
+
+            if (
+                !proofIsValid
+            ) {
+
+                return res.status(500).json({
+
+                    success: false,
+
+                    message:
+                        "Generated Merkle proof could not be verified against the official Merkle Root."
+                });
+            }
+
+
+            // =================================================
+            // RETURN PROOF
+            // =================================================
+
+            return res.status(200).json({
+
+                success: true,
+
+                merkleRoot:
+                    formattedMerkleRoot,
+
+                ipfsCID:
+                    ipfsCID,
+
+                record: {
+
+                    candidateId:
+                        targetRecord.candidateId,
+
+                    moduleCode:
+                        targetRecord.moduleCode,
+
+                    marks:
+                        targetRecord.marks,
+
+                    grade:
+                        targetRecord.grade,
+
+                    version:
+                        targetRecord.version,
+
+                    hash:
+                        targetRecord.hash
+                },
+
+                leafIndex:
+                    recordIndex,
+
+                proof:
+                    proof,
+
+                proofVerified:
+                    true
+            });
+
+        } catch (error) {
+
+            console.error(
+                "Student Merkle proof error:",
+                error
+            );
+
+
+            return res.status(500).json({
+
+                success: false,
+
+                message:
+                    "Unable to generate Merkle proof.",
+
+                error:
+                    error.message
+            });
+        }
+    };

@@ -1,588 +1,2247 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Blockchain Proof Generator</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>
+    Blockchain Proof Layer
+  </title>
+
+
+  <link
+    rel="preconnect"
+    href="https://fonts.googleapis.com"
+  >
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  >
+
+
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    *,
+    *::before,
+    *::after {
+
+      box-sizing:
+        border-box;
+
+      margin:
+        0;
+
+      padding:
+        0;
+    }
+
 
     :root {
-      --bg: #07080d;
-      --surface: #0d0f18;
-      --surface2: #12151f;
-      --border: rgba(255,255,255,0.07);
-      --border-accent: rgba(99, 179, 237, 0.3);
-      --accent: #63b3ed;
-      --accent2: #90cdf4;
-      --green: #68d391;
-      --green-dim: rgba(104, 211, 145, 0.15);
-      --red: #fc8181;
-      --text: #e2e8f0;
-      --text-dim: #4a5568;
-      --text-mid: #718096;
-      --mono: 'DM Mono', monospace;
-      --sans: 'Inter', sans-serif;
+
+      --bg:
+        #07080d;
+
+      --surface:
+        #0d0f18;
+
+      --surface2:
+        #12151f;
+
+      --border:
+        rgba(255,255,255,0.07);
+
+      --accent:
+        #63b3ed;
+
+      --accent2:
+        #90cdf4;
+
+      --green:
+        #68d391;
+
+      --red:
+        #fc8181;
+
+      --yellow:
+        #f6e05e;
+
+      --text:
+        #e2e8f0;
+
+      --text-dim:
+        #4a5568;
+
+      --text-mid:
+        #718096;
+
+      --mono:
+        'DM Mono',
+        monospace;
+
+      --sans:
+        'Inter',
+        sans-serif;
     }
+
 
     body {
-      min-height: 100vh;
-      background: var(--bg);
-      color: var(--text);
-      font-family: var(--sans);
-      padding: 48px 24px 80px;
-      display: flex;
-      justify-content: center;
+
+      min-height:
+        100vh;
+
+      background:
+        var(--bg);
+
+      color:
+        var(--text);
+
+      font-family:
+        var(--sans);
+
+      padding:
+        48px 24px 80px;
+
+      display:
+        flex;
+
+      justify-content:
+        center;
     }
 
-    .wrap { width: 100%; max-width: 780px; }
 
-    /* Header */
-    .header { margin-bottom: 48px; }
+    .wrap {
+
+      width:
+        100%;
+
+      max-width:
+        1040px;
+    }
+
+
+    .header {
+
+      margin-bottom:
+        42px;
+    }
+
 
     .tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      font-family: var(--mono);
-      font-size: 11px;
-      color: var(--accent);
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      margin-bottom: 20px;
-      opacity: 0.8;
+
+      display:
+        inline-flex;
+
+      align-items:
+        center;
+
+      gap:
+        7px;
+
+      font-family:
+        var(--mono);
+
+      font-size:
+        11px;
+
+      color:
+        var(--accent);
+
+      letter-spacing:
+        0.12em;
+
+      text-transform:
+        uppercase;
+
+      margin-bottom:
+        20px;
     }
-    .tag-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+
+
+    .tag-dot {
+
+      width:
+        5px;
+
+      height:
+        5px;
+
+      border-radius:
+        50%;
+
+      background:
+        var(--accent);
+
+      box-shadow:
+        0 0 8px var(--accent);
+    }
+
 
     h1 {
-      font-family: var(--sans);
-      font-size: 42px;
-      font-weight: 700;
-      letter-spacing: -0.03em;
-      line-height: 1.15;
-      color: #fff;
-      margin-bottom: 12px;
+
+      font-size:
+        42px;
+
+      font-weight:
+        700;
+
+      letter-spacing:
+        -0.03em;
+
+      line-height:
+        1.15;
+
+      color:
+        #fff;
+
+      margin-bottom:
+        12px;
     }
-    h1 em { font-style: normal; color: var(--accent); }
+
+
+    h1 em {
+
+      color:
+        var(--accent);
+
+      font-style:
+        normal;
+    }
+
 
     .sub {
-      font-size: 14px;
-      color: var(--text-mid);
-      line-height: 1.7;
-      max-width: 480px;
-      font-family: var(--mono);
+
+      max-width:
+        760px;
+
+      color:
+        var(--text-mid);
+
+      font-family:
+        var(--mono);
+
+      font-size:
+        14px;
+
+      line-height:
+        1.7;
     }
+
 
     .rule {
-      width: 100%;
-      height: 1px;
-      background: var(--border);
-      margin: 36px 0;
+
+      height:
+        1px;
+
+      width:
+        100%;
+
+      background:
+        var(--border);
+
+      margin:
+        30px 0;
     }
 
-    /* Dataset Editor */
+
     .section-label {
-      font-family: var(--mono);
-      font-size: 10px;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      margin-bottom: 14px;
+
+      margin-bottom:
+        14px;
+
+      color:
+        var(--text-dim);
+
+      font-family:
+        var(--mono);
+
+      font-size:
+        10px;
+
+      letter-spacing:
+        0.15em;
+
+      text-transform:
+        uppercase;
     }
 
-    .dataset-box {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      overflow: hidden;
-      margin-bottom: 16px;
+
+    .card {
+
+      background:
+        var(--surface);
+
+      border:
+        1px solid var(--border);
+
+      border-radius:
+        14px;
+
+      overflow:
+        hidden;
+
+      margin-bottom:
+        16px;
     }
 
-    .dataset-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 14px 20px;
-      border-bottom: 1px solid var(--border);
-      background: var(--surface2);
+
+    .card-header {
+
+      display:
+        flex;
+
+      align-items:
+        center;
+
+      justify-content:
+        space-between;
+
+      gap:
+        12px;
+
+      padding:
+        14px 20px;
+
+      background:
+        var(--surface2);
+
+      border-bottom:
+        1px solid var(--border);
     }
 
-    .dataset-header-left {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-family: var(--mono);
-      font-size: 12px;
-      color: var(--text-mid);
+
+    .card-header-left {
+
+      display:
+        flex;
+
+      align-items:
+        center;
+
+      gap:
+        10px;
+
+      font-family:
+        var(--mono);
+
+      font-size:
+        12px;
+
+      color:
+        var(--text-mid);
     }
+
 
     .icon {
-      width: 28px; height: 28px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.03);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 14px;
+
+      width:
+        28px;
+
+      height:
+        28px;
+
+      display:
+        flex;
+
+      align-items:
+        center;
+
+      justify-content:
+        center;
+
+      border:
+        1px solid var(--border);
+
+      border-radius:
+        8px;
+
+      background:
+        rgba(255,255,255,0.03);
     }
 
-    /* Table */
-    .table-scroll { overflow-x: auto; }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
+    .badge {
+
+      padding:
+        6px 10px;
+
+      border:
+        1px solid rgba(99,179,237,0.18);
+
+      border-radius:
+        999px;
+
+      background:
+        rgba(99,179,237,0.08);
+
+      color:
+        var(--accent2);
+
+      font-family:
+        var(--mono);
+
+      font-size:
+        10px;
     }
 
-    thead tr {
-      border-bottom: 1px solid var(--border);
+
+    .card-body {
+
+      padding:
+        20px;
     }
 
-    th {
-      font-family: var(--mono);
-      font-size: 10px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      padding: 10px 16px;
-      text-align: left;
-      font-weight: 500;
+
+    .actions {
+
+      display:
+        flex;
+
+      align-items:
+        center;
+
+      gap:
+        12px;
+
+      flex-wrap:
+        wrap;
+
+      margin-bottom:
+        18px;
     }
 
-    th:last-child { text-align: center; }
 
-    tbody tr {
-      border-bottom: 1px solid rgba(255,255,255,0.03);
-      transition: background 0.15s;
+    button {
+
+      border:
+        1px solid var(--border);
+
+      border-radius:
+        10px;
+
+      padding:
+        12px 18px;
+
+      background:
+        rgba(255,255,255,0.03);
+
+      color:
+        var(--text-mid);
+
+      cursor:
+        pointer;
+
+      font-family:
+        var(--mono);
+
+      font-size:
+        12px;
+
+      transition:
+        0.2s;
     }
 
-    tbody tr:last-child { border-bottom: none; }
-    tbody tr:hover { background: rgba(255,255,255,0.02); }
 
-    td {
-      padding: 10px 16px;
-      font-family: var(--mono);
-      font-size: 13px;
+    button:hover {
+
+      border-color:
+        rgba(99,179,237,0.30);
+
+      color:
+        var(--text);
     }
 
-    td input {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 6px;
-      color: var(--text);
-      font-family: var(--mono);
-      font-size: 13px;
-      padding: 6px 10px;
-      width: 100%;
-      outline: none;
-      transition: border-color 0.2s, background 0.2s;
+
+    button.primary {
+
+      border-color:
+        rgba(99,179,237,0.40);
+
+      background:
+        rgba(99,179,237,0.10);
+
+      color:
+        var(--accent2);
     }
 
-    td input:focus {
-      border-color: var(--accent);
-      background: rgba(99, 179, 237, 0.06);
+
+    button:disabled {
+
+      opacity:
+        0.5;
+
+      cursor:
+        not-allowed;
     }
 
-    td.row-num {
-      color: var(--text-dim);
-      font-size: 11px;
-      width: 40px;
+
+    .status {
+
+      color:
+        var(--text-dim);
+
+      font-family:
+        var(--mono);
+
+      font-size:
+        12px;
     }
 
-    td.actions { text-align: center; }
 
-    .del-btn {
-      background: none;
-      border: none;
-      cursor: pointer;
-      color: var(--text-dim);
-      font-size: 16px;
-      padding: 4px 8px;
-      border-radius: 6px;
-      transition: color 0.2s, background 0.2s;
-      font-family: var(--mono);
-    }
-    .del-btn:hover { color: var(--red); background: rgba(252,129,129,0.08); }
-
-    /* Add row button */
-    .add-row-btn {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      width: 100%;
-      padding: 12px 20px;
-      background: none;
-      border: none;
-      border-top: 1px solid var(--border);
-      cursor: pointer;
-      color: var(--text-dim);
-      font-family: var(--mono);
-      font-size: 12px;
-      transition: color 0.2s, background 0.2s;
-      text-align: left;
-    }
-    .add-row-btn:hover { background: rgba(255,255,255,0.02); color: var(--accent); }
-
-    /* Actions */
-    .actions-row {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      margin-bottom: 40px;
-    }
-
-    .generate-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      padding: 13px 26px;
-      border-radius: 10px;
-      border: 1px solid rgba(99, 179, 237, 0.4);
-      background: rgba(99, 179, 237, 0.1);
-      color: var(--accent2);
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      font-family: var(--mono);
-      letter-spacing: 0.04em;
-      transition: all 0.2s;
-    }
-    .generate-btn:hover { background: rgba(99, 179, 237, 0.18); transform: translateY(-1px); box-shadow: 0 8px 28px rgba(99,179,237,0.15); }
-    .generate-btn:active { transform: scale(0.98) translateY(0); }
-
-    .status-wrap {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-family: var(--mono);
-      font-size: 12px;
-      color: var(--text-dim);
-      min-height: 20px;
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .spinner {
-      width: 14px; height: 14px;
-      border: 1.5px solid rgba(99,179,237,0.2);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      display: none;
-    }
-
-    /* Results */
     .results-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 14px;
-      margin-bottom: 14px;
+
+      display:
+        grid;
+
+      grid-template-columns:
+        repeat(2, minmax(0,1fr));
+
+      gap:
+        14px;
+
+      margin-bottom:
+        16px;
     }
 
-    @media (max-width: 560px) { .results-grid { grid-template-columns: 1fr; } }
+
+    @media (
+      max-width:700px
+    ) {
+
+      .results-grid {
+
+        grid-template-columns:
+          1fr;
+      }
+    }
+
 
     .result-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 20px;
-      transition: border-color 0.3s;
-    }
-    .result-card.lit { border-color: var(--border-accent); background: rgba(99,179,237,0.03); }
-    .result-card.lit-green { border-color: rgba(104,211,145,0.3); background: rgba(104,211,145,0.03); }
 
-    .rc-label {
-      font-family: var(--mono);
-      font-size: 10px;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      margin-bottom: 12px;
-    }
-    .rc-label.blue { color: var(--accent); }
-    .rc-label.green { color: var(--green); }
+      min-width:
+        0;
 
-    .rc-value {
-      font-family: var(--mono);
-      font-size: 11.5px;
-      color: var(--text-dim);
-      word-break: break-all;
-      line-height: 1.8;
-      font-style: italic;
-      min-height: 44px;
-      transition: color 0.3s;
-    }
-    .rc-value.on { color: var(--accent2); font-style: normal; }
-    .rc-value.on-green { color: var(--green); font-style: normal; }
+      padding:
+        20px;
 
-    .rc-value a { color: var(--green); }
+      border:
+        1px solid var(--border);
 
-    /* Steps card */
-    .steps-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 20px;
-      margin-bottom: 14px;
-    }
-    .step-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-family: var(--mono);
-      font-size: 12px;
-      color: var(--text-dim);
-      padding: 5px 0;
-    }
-    .step-dot {
-      width: 6px; height: 6px;
-      border-radius: 50%;
-      background: var(--border);
-      flex-shrink: 0;
-      transition: background 0.4s, box-shadow 0.4s;
-    }
-    .step-dot.done { background: var(--green); box-shadow: 0 0 8px var(--green); }
-    .step-row.done-row { color: var(--text-mid); }
+      border-radius:
+        14px;
 
-    .footer-note {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      padding: 14px 18px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      margin-top: 28px;
+      background:
+        var(--surface);
     }
-    .footer-note span {
-      font-family: var(--mono);
-      font-size: 11px;
-      color: var(--text-dim);
-      line-height: 1.7;
+
+
+    .result-card.blue {
+
+      border-color:
+        rgba(99,179,237,0.25);
+
+      background:
+        rgba(99,179,237,0.03);
     }
+
+
+    .result-card.green {
+
+      border-color:
+        rgba(104,211,145,0.25);
+
+      background:
+        rgba(104,211,145,0.03);
+    }
+
+
+    .result-card.yellow {
+
+      border-color:
+        rgba(246,224,94,0.25);
+
+      background:
+        rgba(246,224,94,0.03);
+    }
+
+
+    .result-label {
+
+      margin-bottom:
+        10px;
+
+      color:
+        var(--text-dim);
+
+      font-family:
+        var(--mono);
+
+      font-size:
+        10px;
+
+      letter-spacing:
+        0.14em;
+
+      text-transform:
+        uppercase;
+    }
+
+
+    .result-value {
+
+      min-height:
+        42px;
+
+      color:
+        var(--accent2);
+
+      font-family:
+        var(--mono);
+
+      font-size:
+        11px;
+
+      line-height:
+        1.7;
+
+      word-break:
+        break-all;
+    }
+
+
+    .green-text {
+
+      color:
+        var(--green);
+    }
+
+
+    .yellow-text {
+
+      color:
+        var(--yellow);
+    }
+
+
+    .table-scroll {
+
+      overflow-x:
+        auto;
+    }
+
+
+    table {
+
+      width:
+        100%;
+
+      border-collapse:
+        collapse;
+
+      min-width:
+        780px;
+    }
+
+
+    th {
+
+      padding:
+        10px;
+
+      border-bottom:
+        1px solid var(--border);
+
+      color:
+        var(--text-dim);
+
+      font-family:
+        var(--mono);
+
+      font-size:
+        10px;
+
+      letter-spacing:
+        0.12em;
+
+      text-align:
+        left;
+
+      text-transform:
+        uppercase;
+    }
+
+
+    td {
+
+      padding:
+        10px;
+
+      border-bottom:
+        1px solid rgba(255,255,255,0.04);
+
+      font-family:
+        var(--mono);
+
+      font-size:
+        11px;
+
+      vertical-align:
+        top;
+    }
+
+
+    .hash {
+
+      max-width:
+        320px;
+
+      color:
+        var(--accent2);
+
+      word-break:
+        break-all;
+    }
+
+
+    .verification-grid {
+
+      display:
+        grid;
+
+      grid-template-columns:
+        repeat(3,1fr);
+
+      gap:
+        12px;
+
+      margin-bottom:
+        14px;
+    }
+
+
+    @media (
+      max-width:850px
+    ) {
+
+      .verification-grid {
+
+        grid-template-columns:
+          1fr;
+      }
+    }
+
+
+    .field {
+
+      display:
+        flex;
+
+      flex-direction:
+        column;
+
+      gap:
+        7px;
+    }
+
+
+    .field label {
+
+      color:
+        var(--text-dim);
+
+      font-family:
+        var(--mono);
+
+      font-size:
+        10px;
+
+      letter-spacing:
+        0.12em;
+
+      text-transform:
+        uppercase;
+    }
+
+
+    .field input {
+
+      width:
+        100%;
+
+      padding:
+        9px 10px;
+
+      outline:
+        none;
+
+      border:
+        1px solid rgba(255,255,255,0.08);
+
+      border-radius:
+        8px;
+
+      background:
+        rgba(255,255,255,0.04);
+
+      color:
+        var(--text);
+
+      font-family:
+        var(--mono);
+
+      font-size:
+        12px;
+    }
+
+
+    .field input:focus {
+
+      border-color:
+        var(--accent);
+
+      background:
+        rgba(99,179,237,0.06);
+    }
+
+
+    .verification-result {
+
+      display:
+        none;
+
+      margin-top:
+        14px;
+    }
+
+
+    .verification-result.visible {
+
+      display:
+        block;
+    }
+
+
+    .proof-row {
+
+      display:
+        flex;
+
+      justify-content:
+        space-between;
+
+      gap:
+        15px;
+
+      padding:
+        8px 0;
+
+      border-bottom:
+        1px solid rgba(255,255,255,0.04);
+
+      font-family:
+        var(--mono);
+
+      font-size:
+        11px;
+    }
+
+
+    .proof-row:last-child {
+
+      border-bottom:
+        none;
+    }
+
+
+    .proof-row span:first-child {
+
+      color:
+        var(--text-dim);
+    }
+
+
+    .proof-row span:last-child {
+
+      color:
+        var(--accent2);
+
+      text-align:
+        right;
+
+      word-break:
+        break-all;
+    }
+
+
+    .footer {
+
+      margin-top:
+        22px;
+
+      padding:
+        14px 18px;
+
+      border:
+        1px solid var(--border);
+
+      border-radius:
+        12px;
+
+      background:
+        var(--surface);
+
+      color:
+        var(--text-dim);
+
+      font-family:
+        var(--mono);
+
+      font-size:
+        11px;
+
+      line-height:
+        1.7;
+    }
+
   </style>
+
 </head>
+
+
 <body>
+
 <div class="wrap">
 
+
+  <!-- =====================================================
+       HEADER
+  ====================================================== -->
+
   <header class="header">
-    <div class="tag"><div class="tag-dot"></div> Research demo · Blockchain layer</div>
-    <h1>Blockchain <em>proof</em><br>generator</h1>
-    <p class="sub">Edit the dataset below, then generate a cryptographic Merkle root + IPFS pin. Different inputs → different proof.</p>
+
+    <div class="tag">
+
+      <div class="tag-dot"></div>
+
+      Research demo · Blockchain proof layer
+
+    </div>
+
+
+    <h1>
+
+      Blockchain
+      <em>proof</em>
+      monitor
+
+    </h1>
+
+
+    <p class="sub">
+
+      Displays the latest finalized dataset received from
+      Component 2 and anchored by Component 1 on IPFS and
+      the blockchain.
+
+    </p>
+
   </header>
+
 
   <div class="rule"></div>
 
-  <!-- Dataset Editor -->
-  <p class="section-label"></p>
-  <div class="dataset-box">
-    <div class="dataset-header">
-      <div class="dataset-header-left">
-        <div class="icon">🗃</div>
-        <span>results.json</span>
-      </div>
-      <span style="font-family:var(--mono);font-size:11px;color:var(--text-dim);" id="row-count">3 records</span>
-    </div>
 
-    <div class="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Student ID</th>
-            <th>Grade</th>
-            <th>✕</th>
-          </tr>
-        </thead>
-        <tbody id="records-body"></tbody>
-      </table>
-    </div>
+  <!-- =====================================================
+       ACTIONS
+  ====================================================== -->
 
-    <button class="add-row-btn" onclick="addRow()">
-      <span>+</span> Add record
+  <div class="actions">
+
+    <button
+      class="primary"
+      id="refresh-btn"
+      onclick="loadLatestProof()">
+
+      ↻ Refresh latest anchored data
+
     </button>
+
+
+    <span
+      class="status"
+      id="status">
+
+      Loading latest anchored data…
+
+    </span>
+
   </div>
 
-  <!-- Actions -->
-  <div class="actions-row">
-    <button class="generate-btn" id="gen-btn" onclick="generateProof()">
-      ⬡ Generate proof
-    </button>
-    <div class="status-wrap">
-      <div class="spinner" id="spinner"></div>
-      <span id="status-text"></span>
-    </div>
-  </div>
 
-  <!-- Steps -->
-  <div class="steps-card" id="steps-card">
-    <p class="rc-label" style="margin-bottom:14px;">Processing pipeline</p>
-    <div class="step-row" id="s1"><div class="step-dot" id="d1"></div> Hash each record (SHA-256)</div>
-    <div class="step-row" id="s2"><div class="step-dot" id="d2"></div> Build Merkle tree</div>
-    <div class="step-row" id="s3"><div class="step-dot" id="d3"></div> Upload payload to IPFS (Pinata)</div>
-  </div>
+  <!-- =====================================================
+       PROOF SUMMARY
+  ====================================================== -->
 
-  <!-- Results -->
+  <p class="section-label">
+    Latest anchored proof
+  </p>
+
+
   <div class="results-grid">
-    <div class="result-card" id="merkle-card">
-      <p class="rc-label blue">Merkle root</p>
-      <div class="rc-value" id="merkle-out">Awaiting generation…</div>
+
+
+    <div class="result-card blue">
+
+      <div class="result-label">
+        Merkle Root
+      </div>
+
+      <div
+        class="result-value"
+        id="merkle-root">
+
+        Not loaded
+
+      </div>
+
     </div>
-    <div class="result-card" id="cid-card">
-      <p class="rc-label green">Content ID (CID)</p>
-      <div class="rc-value" id="cid-out">Awaiting generation…</div>
+
+
+    <div class="result-card green">
+
+      <div class="result-label">
+        IPFS CID
+      </div>
+
+      <div
+        class="result-value green-text"
+        id="ipfs-cid">
+
+        Not loaded
+
+      </div>
+
     </div>
+
+
+    <div class="result-card yellow">
+
+      <div class="result-label">
+        Blockchain Timestamp
+      </div>
+
+      <div
+        class="result-value yellow-text"
+        id="blockchain-time">
+
+        Not loaded
+
+      </div>
+
+    </div>
+
+
+    <div class="result-card">
+
+      <div class="result-label">
+        Blockchain Transaction
+      </div>
+
+      <div
+        class="result-value"
+        id="transaction-hash">
+
+        Not loaded
+
+      </div>
+
+    </div>
+
   </div>
 
-  <div class="footer-note">
-    <span>ℹ</span>
-    <span>Hash values are deterministic per input. Changing any field — even whitespace — produces a completely different Merkle root and CID.</span>
+
+  <!-- =====================================================
+       IPFS DATASET
+  ====================================================== -->
+
+  <div class="card">
+
+    <div class="card-header">
+
+      <div class="card-header-left">
+
+        <div class="icon">
+          📦
+        </div>
+
+        <span>
+          Finalized dataset from Component 2
+        </span>
+
+      </div>
+
+
+      <span
+        class="badge"
+        id="dataset-badge">
+
+        Not loaded
+
+      </span>
+
+    </div>
+
+
+    <div class="card-body">
+
+      <p
+        class="status"
+        style="
+          margin-bottom:14px;
+          line-height:1.7;
+        ">
+
+        This table is loaded from the IPFS dataset that
+        Component 1 anchored after receiving finalized
+        records from Component 2.
+
+      </p>
+
+
+      <div class="table-scroll">
+
+        <table>
+
+          <thead>
+
+            <tr>
+
+              <th>
+                Candidate
+              </th>
+
+              <th>
+                Module
+              </th>
+
+              <th>
+                Marks
+              </th>
+
+              <th>
+                Grade
+              </th>
+
+              <th>
+                Version
+              </th>
+
+              <th>
+                Hash
+              </th>
+
+            </tr>
+
+          </thead>
+
+
+          <tbody
+            id="dataset-body">
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- =====================================================
+       MERKLE PROOF TEST
+  ====================================================== -->
+
+  <p class="section-label">
+    Merkle proof API test
+  </p>
+
+
+  <div class="card">
+
+    <div class="card-header">
+
+      <div class="card-header-left">
+
+        <div class="icon">
+          🔐
+        </div>
+
+        <span>
+          Component 1 cryptographic proof test
+        </span>
+
+      </div>
+
+
+      <span class="badge">
+        Component 4 API demo
+      </span>
+
+    </div>
+
+
+    <div class="card-body">
+
+      <div class="verification-grid">
+
+
+        <div class="field">
+
+          <label
+            for="verify-root">
+
+            Merkle Root
+
+          </label>
+
+
+          <input
+            id="verify-root"
+            type="text"
+            placeholder="Loaded automatically"
+          >
+
+        </div>
+
+
+        <div class="field">
+
+          <label
+            for="verify-candidate">
+
+            Candidate ID
+
+          </label>
+
+
+          <input
+            id="verify-candidate"
+            type="text"
+            placeholder="e.g. TEST001"
+          >
+
+        </div>
+
+
+        <div class="field">
+
+          <label
+            for="verify-module">
+
+            Module Code
+
+          </label>
+
+
+          <input
+            id="verify-module"
+            type="text"
+            placeholder="e.g. SE3040"
+          >
+
+        </div>
+
+      </div>
+
+
+      <button
+        onclick="verifyStudent()">
+
+        Verify Merkle membership
+
+      </button>
+
+
+      <div
+        class="verification-result"
+        id="verification-result">
+
+        <div class="result-card blue">
+
+          <div class="result-label">
+
+            Result
+
+          </div>
+
+
+          <div
+            class="result-value"
+            id="verification-status">
+
+          </div>
+
+
+          <div
+            style="
+              margin-top:12px;
+            ">
+
+
+            <div class="proof-row">
+
+              <span>
+                Candidate
+              </span>
+
+              <span
+                id="proof-candidate">
+
+              </span>
+
+            </div>
+
+
+            <div class="proof-row">
+
+              <span>
+                Module
+              </span>
+
+              <span
+                id="proof-module">
+
+              </span>
+
+            </div>
+
+
+            <div class="proof-row">
+
+              <span>
+                Official Hash
+              </span>
+
+              <span
+                id="proof-hash">
+
+              </span>
+
+            </div>
+
+
+            <div class="proof-row">
+
+              <span>
+                Leaf Index
+              </span>
+
+              <span
+                id="proof-index">
+
+              </span>
+
+            </div>
+
+
+            <div class="proof-row">
+
+              <span>
+                Proof Steps
+              </span>
+
+              <span
+                id="proof-count">
+
+              </span>
+
+            </div>
+
+
+            <div class="proof-row">
+
+              <span>
+                Proof Verified
+              </span>
+
+              <span
+                id="proof-verified">
+
+              </span>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- =====================================================
+       FOOTER
+  ====================================================== -->
+
+  <div class="footer">
+
+    Component 2 provides finalized records and SHA-256 hashes.
+    Component 1 validates those hashes, creates the Merkle Root,
+    stores the finalized proof dataset on IPFS, and anchors the
+    Merkle Root and CID on the blockchain.
+
+    The page then retrieves the latest anchored dataset through
+    Component 1 and displays the real finalized records.
+
+    The Merkle proof section is a Component 1 API demonstration
+    for the future Component 4 integration.
+
   </div>
 
 </div>
 
+
 <script>
-  // ── Default records ──────────────────────────────────────────────
-  let records = [
-    { studentId: "IT001", grade: "A" },
-    { studentId: "IT002", grade: "C" },
-    { studentId: "IT003", grade: "A" }
-  ];
 
-  // ── Render table ─────────────────────────────────────────────────
-  function renderTable() {
-    const tbody = document.getElementById("records-body");
-    tbody.innerHTML = "";
-    records.forEach((r, i) => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td class="row-num">${i + 1}</td>
-        <td><input type="text" value="${r.studentId}" placeholder="e.g. IT004"
-             oninput="updateField(${i}, 'studentId', this.value)" /></td>
-        <td><input type="text" value="${r.grade}" placeholder="A–F"
-             oninput="updateField(${i}, 'grade', this.value)" style="width:80px;" /></td>
-        <td class="actions">
-          <button class="del-btn" onclick="deleteRow(${i})" title="Delete row">✕</button>
-        </td>`;
-      tbody.appendChild(tr);
-    });
-    document.getElementById("row-count").textContent = `${records.length} record${records.length !== 1 ? "s" : ""}`;
-    // Reset results when data changes
-    resetResults();
-  }
+  // =====================================================
+  // LOAD LATEST ANCHORED PROOF + REAL DATASET
+  // =====================================================
 
-  function updateField(i, key, val) {
-    records[i][key] = val;
-    resetResults();
-  }
+  async function loadLatestProof() {
 
-  function addRow() {
-    records.push({ studentId: "", grade: "" });
-    renderTable();
-    // Focus the new studentId input
-    const inputs = document.querySelectorAll("#records-body tr:last-child input");
-    if (inputs[0]) inputs[0].focus();
-  }
+    const button =
+      document.getElementById(
+        "refresh-btn"
+      );
 
-  function deleteRow(i) {
-    if (records.length === 1) return; // keep at least 1
-    records.splice(i, 1);
-    renderTable();
-  }
 
-  function resetResults() {
-    document.getElementById("merkle-out").textContent = "Awaiting generation…";
-    document.getElementById("merkle-out").className = "rc-value";
-    document.getElementById("cid-out").textContent = "Awaiting generation…";
-    document.getElementById("cid-out").className = "rc-value";
-    document.getElementById("merkle-card").classList.remove("lit");
-    document.getElementById("cid-card").classList.remove("lit-green");
-    setStep(0);
-    document.getElementById("status-text").textContent = "";
-  }
+    button.disabled =
+      true;
 
-  function setStep(n) {
-    for (let i = 1; i <= 3; i++) {
-      const dot = document.getElementById(`d${i}`);
-      const row = document.getElementById(`s${i}`);
-      if (i <= n) {
-        dot.classList.add("done");
-        row.classList.add("done-row");
-      } else {
-        dot.classList.remove("done");
-        row.classList.remove("done-row");
-      }
-    }
-  }
 
-  // ── Generate proof ────────────────────────────────────────────────
-  async function generateProof() {
-    const spinner = document.getElementById("spinner");
-    const statusText = document.getElementById("status-text");
+    setStatus(
+      "Loading latest anchored proof…",
+      "var(--text-mid)"
+    );
 
-    // Validate — no empty fields
-    for (let r of records) {
-      if (!r.studentId.trim() || !r.grade.trim()) {
-        statusText.textContent = "⚠ Fill all fields before generating.";
-        statusText.style.color = "#fc8181";
-        return;
-      }
-    }
-
-    spinner.style.display = "block";
-    statusText.style.color = "var(--text-mid)";
-    statusText.textContent = "Processing…";
-    setStep(0);
-
-    // Clean the records (trim whitespace)
-    const cleanRecords = records.map(r => ({
-      studentId: r.studentId.trim(),
-      grade: r.grade.trim()
-    }));
 
     try {
-      const res = await fetch("/generate-proof", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ records: cleanRecords })
-      });
-      const data = await res.json();
-      spinner.style.display = "none";
 
-      if (data.success) {
-        setStep(1);
-        await delay(300);
-        setStep(2);
-        await delay(300);
-        setStep(3);
+      // =================================================
+      // STEP 1 — GET LATEST ROOT + CID
+      // =================================================
 
-        document.getElementById("merkle-out").textContent = data.merkleRoot;
-        document.getElementById("merkle-out").className = "rc-value on";
-        document.getElementById("merkle-card").classList.add("lit");
+      const latestResponse =
+        await fetch(
+          "/proof/latest",
+          {
+            method:
+              "GET",
 
-        const link = `https://ipfs.io/ipfs/${data.cid}`;
-        document.getElementById("cid-out").innerHTML =
-          `${data.cid}<br><br><a href="${link}" target="_blank" rel="noopener">View on IPFS ↗</a>`;
-        document.getElementById("cid-out").className = "rc-value on-green";
-        document.getElementById("cid-card").classList.add("lit-green");
+            headers: {
+              Accept:
+                "application/json"
+            },
 
-        statusText.textContent = "✔ Proof generated";
-        statusText.style.color = "var(--green)";
-      } else {
-        throw new Error("failure");
+            cache:
+              "no-store"
+          }
+        );
+
+
+      const latestData =
+        await latestResponse.json();
+
+
+      if (
+        !latestResponse.ok ||
+        !latestData.success
+      ) {
+
+        throw new Error(
+          latestData.error ||
+          latestData.message ||
+          "No latest anchored proof found."
+        );
       }
-    } catch (e) {
-      spinner.style.display = "none";
-      statusText.textContent = "✕ Could not connect to proof server";
-      statusText.style.color = "var(--red)";
-      setStep(0);
+
+
+      const proof =
+        latestData.proof;
+
+
+      const merkleRoot =
+        proof.merkleRoot;
+
+
+      if (
+        !merkleRoot
+      ) {
+
+        throw new Error(
+          "Latest proof response did not contain a Merkle Root."
+        );
+      }
+
+
+      // =================================================
+      // DISPLAY MERKLE ROOT
+      // =================================================
+
+      document.getElementById(
+        "merkle-root"
+      ).textContent =
+        merkleRoot;
+
+
+      // =================================================
+      // DISPLAY IPFS CID
+      // =================================================
+
+      document.getElementById(
+        "ipfs-cid"
+      ).innerHTML = `
+
+        ${escapeHtml(
+          proof.ipfsCID
+        )}
+
+        <br><br>
+
+        <a
+          href="https://red-rare-goat-296.mypinata.cloud/ipfs/${encodeURIComponent(proof.ipfsCID)}"
+          target="_blank"
+          rel="noopener"
+          style="
+            color:var(--green);
+            text-decoration:none;
+          ">
+
+          View finalized dataset on IPFS ↗
+
+        </a>
+
+      `;
+
+
+      // =================================================
+      // DISPLAY TIMESTAMP
+      // =================================================
+
+      document.getElementById(
+        "blockchain-time"
+      ).textContent =
+        formatTimestamp(
+          proof.timestamp
+        );
+
+
+      // =================================================
+      // DISPLAY TRANSACTION HASH
+      // =================================================
+
+      document.getElementById(
+        "transaction-hash"
+      ).innerHTML = `
+
+        ${escapeHtml(
+          proof.transactionHash ||
+          "Not available"
+        )}
+
+        <br><br>
+
+        Block:
+        ${escapeHtml(
+          String(
+            proof.blockNumber ??
+            "—"
+          )
+        )}
+
+      `;
+
+
+      // =================================================
+      // SET ROOT FOR MERKLE PROOF TEST
+      // =================================================
+
+      document.getElementById(
+        "verify-root"
+      ).value =
+        merkleRoot;
+
+
+      // =================================================
+      // STEP 2 — RETRIEVE REAL COMPONENT 2 DATA
+      // =================================================
+
+      setStatus(
+        "Loading real finalized records from IPFS…",
+        "var(--text-mid)"
+      );
+
+
+      const normalizedRoot =
+        removeHexPrefix(
+          merkleRoot
+        );
+
+
+      const dataResponse =
+        await fetch(
+          `/proof/${encodeURIComponent(
+            normalizedRoot
+          )}/data`,
+          {
+            method:
+              "GET",
+
+            headers: {
+              Accept:
+                "application/json"
+            },
+
+            cache:
+              "no-store"
+          }
+        );
+
+
+      const dataset =
+        await dataResponse.json();
+
+
+      if (
+        !dataResponse.ok ||
+        !dataset.success
+      ) {
+
+        throw new Error(
+          dataset.error ||
+          dataset.message ||
+          "Unable to load finalized dataset."
+        );
+      }
+
+
+      const records =
+        dataset.data?.recordsWithHashes;
+
+
+      if (
+        !Array.isArray(
+          records
+        )
+      ) {
+
+        throw new Error(
+          "IPFS dataset does not contain a valid finalized record list."
+        );
+      }
+
+
+      // =================================================
+      // RENDER ACTUAL DATA
+      // =================================================
+
+      renderDataset(
+        records
+      );
+
+
+      document.getElementById(
+        "dataset-badge"
+      ).textContent =
+        `${records.length} real finalized record(s)`;
+
+
+      setStatus(
+        `✔ Loaded ${records.length} real finalized record(s) from the latest Component 2 batch.`,
+        "var(--green)"
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "Latest proof loading error:",
+        error
+      );
+
+
+      clearLatestProof();
+
+
+      setStatus(
+        `✕ ${error.message}`,
+        "var(--red)"
+      );
+
+
+    } finally {
+
+      button.disabled =
+        false;
+
     }
+
   }
 
-  function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-  // ── Init ──────────────────────────────────────────────────────────
-  renderTable();
+  // =====================================================
+  // RENDER REAL DATA
+  // =====================================================
+
+  function renderDataset(
+    records
+  ) {
+
+    const tbody =
+      document.getElementById(
+        "dataset-body"
+      );
+
+
+    tbody.innerHTML =
+      "";
+
+
+    records.forEach(
+      (record) => {
+
+        const row =
+          document.createElement(
+            "tr"
+          );
+
+
+        row.innerHTML = `
+
+          <td>
+            ${escapeHtml(
+              record.candidateId
+            )}
+          </td>
+
+          <td>
+            ${escapeHtml(
+              record.moduleCode
+            )}
+          </td>
+
+          <td>
+            ${escapeHtml(
+              String(
+                record.marks
+              )
+            )}
+          </td>
+
+          <td>
+            ${escapeHtml(
+              record.grade
+            )}
+          </td>
+
+          <td>
+            ${escapeHtml(
+              String(
+                record.version
+              )
+            )}
+          </td>
+
+          <td
+            class="hash">
+
+            ${escapeHtml(
+              record.hash
+            )}
+
+          </td>
+
+        `;
+
+
+        tbody.appendChild(
+          row
+        );
+
+      }
+    );
+
+  }
+
+
+  // =====================================================
+  // MERKLE PROOF TEST
+  // =====================================================
+
+  async function verifyStudent() {
+
+    const merkleRoot =
+      document.getElementById(
+        "verify-root"
+      ).value.trim();
+
+
+    const candidateId =
+      document.getElementById(
+        "verify-candidate"
+      ).value.trim();
+
+
+    const moduleCode =
+      document.getElementById(
+        "verify-module"
+      ).value.trim();
+
+
+    const resultBox =
+      document.getElementById(
+        "verification-result"
+      );
+
+
+    resultBox.classList.remove(
+      "visible"
+    );
+
+
+    if (
+      !merkleRoot ||
+      !candidateId ||
+      !moduleCode
+    ) {
+
+      setStatus(
+        "⚠ Enter Candidate ID and Module Code.",
+        "var(--red)"
+      );
+
+
+      return;
+
+    }
+
+
+    try {
+
+      setStatus(
+        "Generating and verifying Merkle proof…",
+        "var(--text-mid)"
+      );
+
+
+      const response =
+        await fetch(
+          "/proof/merkle-proof",
+          {
+
+            method:
+              "POST",
+
+            headers: {
+
+              "Content-Type":
+                "application/json",
+
+              Accept:
+                "application/json"
+            },
+
+            body:
+              JSON.stringify({
+
+                merkleRoot:
+                  removeHexPrefix(
+                    merkleRoot
+                  ),
+
+                candidateId:
+                  candidateId,
+
+                moduleCode:
+                  moduleCode
+
+              })
+
+          }
+        );
+
+
+      const data =
+        await response.json();
+
+
+      if (
+        !response.ok ||
+        !data.success
+      ) {
+
+        throw new Error(
+          data.error ||
+          data.message ||
+          "Merkle proof generation failed."
+        );
+
+      }
+
+
+      resultBox.classList.add(
+        "visible"
+      );
+
+
+      document.getElementById(
+        "verification-status"
+      ).textContent =
+        data.proofVerified === true
+          ? "✅ VALID — student hash belongs to the anchored Merkle Root."
+          : "❌ INVALID";
+
+
+      document.getElementById(
+        "verification-status"
+      ).className =
+        data.proofVerified === true
+          ? "result-value green-text"
+          : "result-value";
+
+
+      document.getElementById(
+        "proof-candidate"
+      ).textContent =
+        data.record?.candidateId ||
+        "—";
+
+
+      document.getElementById(
+        "proof-module"
+      ).textContent =
+        data.record?.moduleCode ||
+        "—";
+
+
+      document.getElementById(
+        "proof-hash"
+      ).textContent =
+        data.record?.hash ||
+        "—";
+
+
+      document.getElementById(
+        "proof-index"
+      ).textContent =
+        data.leafIndex ??
+        "—";
+
+
+      document.getElementById(
+        "proof-count"
+      ).textContent =
+        Array.isArray(
+          data.proof
+        )
+          ? data.proof.length
+          : "—";
+
+
+      document.getElementById(
+        "proof-verified"
+      ).textContent =
+        data.proofVerified === true
+          ? "TRUE"
+          : "FALSE";
+
+
+      setStatus(
+        "✔ Merkle proof verified.",
+        "var(--green)"
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "Merkle proof error:",
+        error
+      );
+
+
+      resultBox.classList.remove(
+        "visible"
+      );
+
+
+      clearProofFields();
+
+
+      setStatus(
+        `✕ ${error.message}`,
+        "var(--red)"
+      );
+
+    }
+
+  }
+
+
+  // =====================================================
+  // CLEAR PROOF FIELDS
+  // =====================================================
+
+  function clearProofFields() {
+
+    document.getElementById(
+      "proof-candidate"
+    ).textContent =
+      "";
+
+
+    document.getElementById(
+      "proof-module"
+    ).textContent =
+      "";
+
+
+    document.getElementById(
+      "proof-hash"
+    ).textContent =
+      "";
+
+
+    document.getElementById(
+      "proof-index"
+    ).textContent =
+      "";
+
+
+    document.getElementById(
+      "proof-count"
+    ).textContent =
+      "";
+
+
+    document.getElementById(
+      "proof-verified"
+    ).textContent =
+      "";
+
+  }
+
+
+  // =====================================================
+  // CLEAR DATA AFTER FAILURE
+  // =====================================================
+
+  function clearLatestProof() {
+
+    document.getElementById(
+      "merkle-root"
+    ).textContent =
+      "Not loaded";
+
+
+    document.getElementById(
+      "ipfs-cid"
+    ).textContent =
+      "Not loaded";
+
+
+    document.getElementById(
+      "blockchain-time"
+    ).textContent =
+      "Not loaded";
+
+
+    document.getElementById(
+      "transaction-hash"
+    ).textContent =
+      "Not loaded";
+
+
+    document.getElementById(
+      "dataset-body"
+    ).innerHTML =
+      "";
+
+
+    document.getElementById(
+      "dataset-badge"
+    ).textContent =
+      "Not loaded";
+
+
+    document.getElementById(
+      "verify-root"
+    ).value =
+      "";
+
+
+    document.getElementById(
+      "verification-result"
+    ).classList.remove(
+      "visible"
+    );
+
+
+    clearProofFields();
+
+  }
+
+
+  // =====================================================
+  // STATUS
+  // =====================================================
+
+  function setStatus(
+    message,
+    color
+  ) {
+
+    const element =
+      document.getElementById(
+        "status"
+      );
+
+
+    element.textContent =
+      message;
+
+
+    element.style.color =
+      color;
+
+  }
+
+
+  // =====================================================
+  // FORMAT BLOCKCHAIN TIMESTAMP
+  // =====================================================
+
+  function formatTimestamp(
+    value
+  ) {
+
+    if (
+      value === null ||
+      value === undefined ||
+      value === ""
+    ) {
+
+      return "Not available";
+
+    }
+
+
+    const numeric =
+      Number(value);
+
+
+    if (
+      Number.isNaN(
+        numeric
+      )
+    ) {
+
+      return String(
+        value
+      );
+
+    }
+
+
+    return new Date(
+      numeric * 1000
+    ).toLocaleString();
+
+  }
+
+
+  // =====================================================
+  // REMOVE 0x PREFIX
+  // =====================================================
+
+  function removeHexPrefix(
+    value
+  ) {
+
+    return String(
+      value
+    ).replace(
+      /^0x/i,
+      ""
+    );
+
+  }
+
+
+  // =====================================================
+  // HTML ESCAPE
+  // =====================================================
+
+  function escapeHtml(
+    value
+  ) {
+
+    return String(
+      value
+    )
+
+      .replace(
+        /&/g,
+        "&amp;"
+      )
+
+      .replace(
+        /</g,
+        "&lt;"
+      )
+
+      .replace(
+        />/g,
+        "&gt;"
+      )
+
+      .replace(
+        /"/g,
+        "&quot;"
+      )
+
+      .replace(
+        /'/g,
+        "&#039;"
+      );
+
+  }
+
+
+  // =====================================================
+  // LOAD AUTOMATICALLY
+  // =====================================================
+
+  window.addEventListener(
+    "DOMContentLoaded",
+    () => {
+
+      loadLatestProof();
+
+    }
+  );
+
 </script>
+
 </body>
 </html>
