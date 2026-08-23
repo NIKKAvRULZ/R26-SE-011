@@ -1,25 +1,28 @@
-// component-02-BOE/backend/jobs/finalizationJob.js
 const { finalizeExpiredResults } = require("../services/finalizationService");
 
+const JOB_INTERVAL = 5000; // 5 seconds
+
 const startFinalizationJob = () => {
-  // Run once on server startup
+  // Run once when server starts
   runFinalization();
 
-  // Run every 30 seconds for instant finalization checks
+  // Check every 5 seconds
   setInterval(async () => {
     await runFinalization();
-  }, 30000);
+  }, JOB_INTERVAL);
 
   console.log("⏰ Component 2 Synchronized Finalization Job Started.");
-  console.log("   → Actively evaluating BOE review thresholds every 30 seconds.");
+  console.log("   → Evaluating BOE review thresholds every 5 seconds.");
 };
 
 const runFinalization = async () => {
   try {
     const result = await finalizeExpiredResults();
+
     if (result && (result.finalized > 0 || result.skipped > 0)) {
       console.log(
-        `✅ Finalization sync complete -> Transferred to Final Database: Finalized: ${result.finalized}, Skipped: ${result.skipped}`,
+        `✅ Finalization sync complete -> Transferred to Final Database: ` +
+          `Finalized: ${result.finalized}, Skipped: ${result.skipped}`,
       );
     }
   } catch (error) {

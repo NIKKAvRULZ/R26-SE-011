@@ -9,17 +9,30 @@ const path = require("path");
 // =======================================
 const getSystemPolicy = () => {
   try {
-    const configPath = path.join(__dirname, "../../../component-03-silent-bridge/middleware/system-config.json");
+    const configPath = path.join(
+      __dirname,
+      "../../../component-03-silent-bridge/middleware/system-config.json",
+    );
     if (fs.existsSync(configPath)) {
       const raw = fs.readFileSync(configPath, "utf8");
       const policy = JSON.parse(raw);
-      console.log(`📡 [Sync Success] Component 2 successfully read Component 3 Policy:`, policy);
+      console.log(
+        `📡 [Sync Success] Component 2 successfully read Component 3 Policy:`,
+        policy,
+      );
       return policy;
     }
   } catch (err) {
-    console.warn("⚠️ Could not load system-config.json in Component 2, falling back to defaults.");
+    console.warn(
+      "⚠️ Could not load system-config.json in Component 2, falling back to defaults.",
+    );
   }
-  return { standardUploadWindow: 7, boeReviewWindow: 14, specialConcernsWindow: 21, timeUnit: "days" };
+  return {
+    standardUploadWindow: 7,
+    boeReviewWindow: 14,
+    specialConcernsWindow: 21,
+    timeUnit: "days",
+  };
 };
 
 // =======================================
@@ -45,7 +58,9 @@ const finalizeExpiredResults = async () => {
     console.log(`\n==================================================`);
     console.log(`⚙️ [BOE Time-Gate Check] Running Synchronization Job`);
     console.log(`   - Time Unit Active: ${policy.timeUnit}`);
-    console.log(`   - BOE Review Window Threshold: ${boeWindow} ${policy.timeUnit}`);
+    console.log(
+      `   - BOE Review Window Threshold: ${boeWindow} ${policy.timeUnit}`,
+    );
     console.log(`   - Target Cutoff Deadline: ${deadline.toISOString()}`);
     console.log(`==================================================\n`);
 
@@ -61,14 +76,18 @@ const finalizeExpiredResults = async () => {
     }).lean();
 
     if (expiredResults.length === 0) {
-      console.log(`ℹ️ No expired BOE results found matching deadline criteria.`);
+      console.log(
+        `ℹ️ No expired BOE results found matching deadline criteria.`,
+      );
       return {
         finalized: 0,
         skipped: 0,
       };
     }
 
-    console.log(`\n🔒 Found ${expiredResults.length} expired BOE result(s) ready for finalization.`);
+    console.log(
+      `\n🔒 Found ${expiredResults.length} expired BOE result(s) ready for finalization.`,
+    );
 
     let finalized = 0;
     let skipped = 0;
@@ -90,15 +109,19 @@ const finalizeExpiredResults = async () => {
 
       const finalizedAt = new Date();
 
-      let holdMs = 0;
       const specialWindow = Number(policy.specialConcernsWindow);
+
+      let specialWindowMs = 0;
+
       if (policy.timeUnit === "minutes") {
-        holdMs = specialWindow * 60 * 1000;
+        specialWindowMs = specialWindow * 60 * 1000;
       } else {
-        holdMs = specialWindow * 24 * 60 * 60 * 1000;
+        specialWindowMs = specialWindow * 24 * 60 * 60 * 1000;
       }
 
-      const blockchainEligibleAt = new Date(finalizedAt.getTime() + holdMs);
+      const blockchainEligibleAt = new Date(
+        result.releaseDate.getTime() + specialWindowMs,
+      );
 
       const hash = generateResultHash({
         candidateId: result.candidateId,
@@ -140,10 +163,14 @@ const finalizeExpiredResults = async () => {
 
       finalized++;
 
-      console.log(`✅ [Finalized] Student: ${result.candidateId} | Module: ${result.moduleCode}`);
+      console.log(
+        `✅ [Finalized] Student: ${result.candidateId} | Module: ${result.moduleCode}`,
+      );
       console.log(`   - Version: ${result.version}`);
       console.log(`   - Generated Hash: ${hash}`);
-      console.log(`   - Blockchain Eligible At: ${blockchainEligibleAt.toISOString()}`);
+      console.log(
+        `   - Blockchain Eligible At: ${blockchainEligibleAt.toISOString()}`,
+      );
     }
 
     console.log(
