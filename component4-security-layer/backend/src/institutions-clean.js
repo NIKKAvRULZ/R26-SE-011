@@ -1,43 +1,75 @@
-const crypto = require('crypto');
+const fs = require('node:fs');
+const path = require('node:path');
 
 function normalizeText(value) {
   return String(value ?? '').trim();
 }
 
-const INSTITUTION_CATALOG = [
-  {
-    id: 'EMP001',
-    name: 'Employer Verification Portal',
-    label: 'Employer / External Institution',
-    secretEnvKey: 'DEMO_INSTITUTION_SECRET',
-    secretFallback: 'demo-institution-zkp-secret',
-  },
-];
-
-function secretFromInstitution(institution) {
-  return process.env[institution.secretEnvKey] || institution.secretFallback;
+function normalizeInstitutionId(value) {
+  return normalizeText(value).toUpperCase();
 }
 
-function secretToFieldElement(secret) {
-  const digest = crypto.createHash('sha256').update(String(secret)).digest('hex');
-  const field = BigInt('21888242871839275222246405745257275088548364400416034343698204186575808495617');
-  return BigInt(`0x${digest}`) % field;
+function normalizeCommitment(value) {
+  return normalizeText(value).toLowerCase().replace(/^0x/, '');
 }
 
-function poseidonCommitmentFromSecret(secret) {
-  const secretField = secretToFieldElement(secret).toString();
-  return crypto.createHash('sha256').update(secretField).digest('hex');
+const STORE_PATH = path.resolve(__dirname, '..', 'data', 'institutions.json');
+let institutions = [];
+
+function ensureStoreDir() {
+  fs.mkdirSync(path.dirname(STORE_PATH), { recursive: true });
 }
+
+function persistStore() {
+  ensureStoreDir();
+  fs.writeFileSync(
+    STORE_PATH,
+    JSON.stringify(
+      {
+        version: 1,
+        updatedAt: new Date().toISOString(),
+        institutions,
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+}
+
+function loadStore() {
+  if (!fs.existsSync(STORE_PATH)) {
+    institutions = [];
+    return;
+  }
+
+  try {
+    const raw = fs.readFileSync(STORE_PATH, 'utf8');
+    const parsed = JSON.parse(raw);
+    const entries = Array.isArray(parsed.institutions) ? parsed.institutions : [];
+
+    institutions = entries
+      .map((entry) => ({
+        id: normalizeInstitutionId(entry.id),
+        name: normalizeText(entry.name),
+        label: normalizeText(entry.label || 'External Institution'),
+        commitment: normalizeCommitment(entry.commitment),
+      }))
+      .filter((entry) => entry.id && entry.name && /^[a-f0-9]{64}$/i.test(entry.commitment));
+  } catch (_error) {
+    institutions = [];
+  }
+}
+
+loadStore();
 
 async function resolveInstitution(institutionId) {
-  const normalizedId = normalizeText(institutionId).toUpperCase();
-  const institution = INSTITUTION_CATALOG.find((entry) => entry.id === normalizedId);
+  const normalizedId = normalizeInstitutionId(institutionId);
+  const institution = institutions.find((entry) => entry.id === normalizedId);
 
   if (!institution) {
     return null;
   }
-
-  const commitment = poseidonCommitmentFromSecret(secretFromInstitution(institution));
 
   return {
     id: institution.id,
@@ -45,24 +77,62 @@ async function resolveInstitution(institutionId) {
     name: institution.name,
     institutionName: institution.name,
     label: institution.label,
-    commitment,
+    commitment: institution.commitment,
   };
 }
 
 async function listInstitutions() {
-  const institutions = [];
+  return institutions.map((institution) => ({
+    id: institution.id,
+    institutionId: institution.id,
+    name: institution.name,
+    institutionName: institution.name,
+    label: institution.label,
+    commitment: institution.commitment,
+  }));
+}
 
-  for (const institution of INSTITUTION_CATALOG) {
-    institutions.push(await resolveInstitution(institution.id));
+function registerInstitution({ id, name, label, commitment }) {
+  const normalizedId = normalizeInstitutionId(id);
+  const normalizedName = normalizeText(name);
+  const normalizedLabel = normalizeText(label || 'External Institution');
+  const normalizedCommitment = normalizeCommitment(commitment);
+
+  if (!normalizedId || !normalizedName || !/^[a-f0-9]{64}$/i.test(normalizedCommitment)) {
+    return {
+      success: false,
+      status: 400,
+      error: 'Institution id, name and a 64-hex-character commitment are required',
+    };
   }
 
-  return institutions.filter(Boolean);
+  const existingById = institutions.find((entry) => entry.id === normalizedId);
+  if (existingById) {
+    return { success: false, status: 409, error: 'Institution already exists' };
+  }
+
+  institutions.push({
+    id: normalizedId,
+    name: normalizedName,
+    label: normalizedLabel,
+    commitment: normalizedCommitment,
+  });
+  persistStore();
+
+  return {
+    success: true,
+    status: 201,
+    institution: {
+      id: normalizedId,
+      name: normalizedName,
+      label: normalizedLabel,
+      commitment: normalizedCommitment,
+    },
+  };
 }
 
 module.exports = {
   listInstitutions,
-  poseidonCommitmentFromSecret,
+  registerInstitution,
   resolveInstitution,
-  secretFromInstitution,
-  secretToFieldElement,
 };

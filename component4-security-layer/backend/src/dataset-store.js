@@ -10,9 +10,42 @@ const {
   sha256Hex,
   verifyMerkleProof,
 } = require("./crypto-utils-fixed");
+const { buildMerkleTree: buildVerificationMerkleTree } = require("./verification-utils");
 
 const DATASET_CID = process.env.FINALIZED_DATASET_CID || "QmWud5Mb4rZ89vnZjkaMPfqodppRLu98E1S2m1H9NUTrbg";
-const BLOCKCHAIN_MERKLE_ROOT = process.env.BLOCKCHAIN_MERKLE_ROOT || "0xe89fa682751c95ed0c5af23a08ed5853577be25954372cefb0bad48a68a0ea2b";
+const BLOCKCHAIN_MERKLE_ROOT_RAW = process.env.BLOCKCHAIN_MERKLE_ROOT || "";
+
+const IPFS_RECORDS_WITH_HASHES = [
+  {
+    candidateId: "IT001",
+    moduleCode: "SE3050",
+    marks: 85,
+    grade: "A",
+    version: 2,
+    hash: sha256Hex(canonicalizeGradeClaim("IT001", "SE3050", "A")),
+  },
+  {
+    candidateId: "IT002",
+    moduleCode: "SE3050",
+    marks: 72,
+    grade: "B",
+    version: 1,
+    hash: sha256Hex(canonicalizeGradeClaim("IT002", "SE3050", "B")),
+  },
+  {
+    candidateId: "IT003",
+    moduleCode: "SE3050",
+    marks: 91,
+    grade: "A+",
+    version: 3,
+    hash: sha256Hex(canonicalizeGradeClaim("IT003", "SE3050", "A+")),
+  },
+];
+
+const COMPUTED_DATASET_MERKLE_ROOT = normalizeMerkleRoot(
+  buildVerificationMerkleTree(IPFS_RECORDS_WITH_HASHES.map((record) => record.hash)).root,
+);
+const BLOCKCHAIN_MERKLE_ROOT = normalizeMerkleRoot(BLOCKCHAIN_MERKLE_ROOT_RAW || COMPUTED_DATASET_MERKLE_ROOT);
 
 const IPFS_DATASET_PAYLOAD = {
   success: true,
@@ -25,34 +58,9 @@ const IPFS_DATASET_PAYLOAD = {
     },
   },
   data: {
-    recordsWithHashes: [
-      {
-        candidateId: "IT001",
-        moduleCode: "SE3050",
-        marks: 85,
-        grade: "A",
-        version: 2,
-        hash: sha256Hex(canonicalizeGradeClaim("IT001", "SE3050", "A")),
-      },
-      {
-        candidateId: "IT002",
-        moduleCode: "SE3050",
-        marks: 72,
-        grade: "B",
-        version: 1,
-        hash: sha256Hex(canonicalizeGradeClaim("IT002", "SE3050", "B")),
-      },
-      {
-        candidateId: "IT003",
-        moduleCode: "SE3050",
-        marks: 91,
-        grade: "A+",
-        version: 3,
-        hash: sha256Hex(canonicalizeGradeClaim("IT003", "SE3050", "A+")),
-      },
-    ],
-    merkleRoot: normalizeMerkleRoot(BLOCKCHAIN_MERKLE_ROOT),
-    totalRecords: 3,
+    recordsWithHashes: IPFS_RECORDS_WITH_HASHES,
+    merkleRoot: BLOCKCHAIN_MERKLE_ROOT,
+    totalRecords: IPFS_RECORDS_WITH_HASHES.length,
     generatedAt: new Date().toISOString(),
   },
 };

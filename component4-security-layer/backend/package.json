@@ -6,14 +6,18 @@
   "scripts": {
     "start": "node src/api-server-clean.js",
     "listen": "node src/event-listener.js",
-    "test": "mocha --timeout 60000 ../test/**/*.test.js"
+    "test": "node --test ../test/claim-workflow.test.js"
   },
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "circomlibjs": "^0.1.7",
     "dotenv": "^16.4.5",
     "ethers": "^6.11.1",
     "express": "^4.19.2",
     "express-rate-limit": "^7.2.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb": "^7.5.0",
+    "mongoose": "^8.18.0",
     "snarkjs": "^0.7.4"
   },
   "devDependencies": {

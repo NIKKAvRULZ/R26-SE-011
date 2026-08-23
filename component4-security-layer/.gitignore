@@ -32,6 +32,9 @@ backend/.env
 .env.*
 !backend/.env.example
 
+# Runtime auth store (real company/user data)
+backend/data/
+
 # Logs
 *.log
 logs/

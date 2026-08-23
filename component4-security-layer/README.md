@@ -1,13 +1,15 @@
 # Component 4 — ZKP Security & Verification Layer
 
-Component 4 is the security and verification layer for the academic grading system. It provides a real verification portal for employers and external institutions, combining Zero-Knowledge Proof authentication, Merkle-root integrity checks, IPFS-backed dataset retrieval, and smart-contract formal verification.
+Component 4 is the security and verification layer for the academic grading system. It provides a real verification portal for employers and external institutions, combining role-based company authentication, Merkle-root integrity checks, IPFS-backed dataset retrieval, and smart-contract formal verification.
 
 ## What This Component Does
 
 This component is responsible for:
 
-- authenticating institutions through a dedicated ZKP login flow
+- authenticating company verifiers through role-based account login
 - protecting the verification portal behind authenticated access
+- enforcing login lockout and password policy controls for company accounts
+- providing admin user governance (create users, assign roles, rotate passwords, review audit events)
 - retrieving finalized academic datasets from the anchored Merkle-root/IPFS endpoint
 - validating candidate records by candidate ID, module code, and claimed grade
 - recomputing and checking the canonical record hash
@@ -17,16 +19,17 @@ This component is responsible for:
 
 ## Verification Flow
 
-1. Institution enters credentials on the ZKP login page.
-2. The frontend generates a login proof locally.
-3. The backend verifies the proof and creates an authenticated session.
-4. The verifier portal becomes available to the authenticated user.
-5. The portal requests the official finalized dataset using the blockchain Merkle root and dataset CID.
-6. The backend retrieves the anchored dataset from the live `/proof/{MERKLE_ROOT}/data` endpoint.
-7. The submitted candidate record is canonicalized and hashed.
-8. The backend compares the computed hash against the official stored hash.
-9. The backend verifies Merkle membership against the finalized dataset root.
-10. The result is returned as `VALID` or `INVALID / TAMPERED`.
+1. Company verifier enters organization credentials on the login page.
+2. The backend validates the account and role, applies lockout protection on repeated failures, then creates an authenticated session token.
+3. Role-based access is enforced before transcript/grade verification endpoints are processed.
+4. Company admins can manage users and roles from the Admin Console.
+5. The verifier portal becomes available to the authenticated user.
+6. The portal requests the official finalized dataset using the blockchain Merkle root and dataset CID.
+7. The backend retrieves the anchored dataset from `/proof/{MERKLE_ROOT}/data`.
+8. The backend calls `POST /proof/merkle-proof` to obtain the official hash and Merkle proof for the specific candidate/module.
+9. The submitted candidate record is canonicalized and hashed.
+10. The backend compares the computed hash against the official stored hash and verifies the returned Merkle proof.
+11. The result is returned as `VALID` or `INVALID / TAMPERED`.
 
 ## Project Structure
 
@@ -46,15 +49,19 @@ component4-security-layer/
 
 ## Main Features
 
-### ZKP Login Portal
+### Professional Login Portal
 
-The portal includes a dedicated institutional login screen with:
+The portal includes three explicit access modes:
 
-- institution ID input
-- private ZKP credential input
-- proof generation in the browser
-- backend proof verification
-- authenticated session creation
+- **Company Login**: company ID + work email + password
+- **Institution ZKP Login**: institution ID + private secret on client, proof verification on server
+- **Company Sign Up**: register a new company and first admin account
+
+And supports:
+
+- role-based access control (admin / verifier / auditor / institution)
+- backend credential verification and login lockout
+- admin-only user and role governance console
 
 ### Full Transcript Verification
 
@@ -91,35 +98,95 @@ The Solidity verifier and Certora configuration remain part of the component to 
 ### 1. Install dependencies
 
 ```bash
-cd backend && npm install
+cd component4-security-layer/backend && npm install
 cd ../frontend && npm install
 ```
 
-### 2. Prepare circuit artifacts and trusted setup
+### 2. Configure backend environment
+
+Create `backend/.env` with at least:
+
+```dotenv
+PORT=3000
+DEMO_INSTITUTION_SECRET=demo-institution-zkp-secret
+```
+
+Optional: use the built-in development company accounts in `backend/src/company-accounts.js`.
+
+Optional hardening environment variables:
+
+```dotenv
+AUTH_PASSWORD_MIN_LENGTH=12
+AUTH_MAX_FAILED_ATTEMPTS=5
+AUTH_ATTEMPT_WINDOW_MINUTES=15
+AUTH_LOCKOUT_MINUTES=30
+```
+
+Optional organization bootstrap from environment:
+
+`COMPANY_AUTH_CONFIG_JSON` can provide companies/users as JSON (users support `passwordHash` or `password` values).
+
+### 3. Prepare circuit artifacts and trusted setup
 
 ```bash
+cd ..
 node scripts/setup.js
 ```
 
-### 3. Start the backend API
+### 4. Start the backend API
 
 ```bash
-cd backend && npm start
+cd backend
+npm start
 ```
 
-### 4. Start the frontend portal
+Backend URL: `http://localhost:3000`
+
+### 5. Start the frontend portal
 
 ```bash
-cd frontend && npm run dev
+cd ../frontend
+npm run dev
 ```
 
-### 5. Run tests
+Frontend URL: `http://127.0.0.1:5174`
+
+Note: frontend is pinned to port `5174` with strict-port mode. If `5174` is already occupied, stop the conflicting process first.
+
+### 6. Create your company account (real onboarding)
+
+Use **Company Sign Up** in the portal to create:
+
+- Company ID
+- Company name
+- First admin name/email/password
+
+After signup, login with that admin account.
+
+Admin users can open **Admin Console** mode and:
+
+- create verifier/auditor/admin users
+- change user roles
+- rotate user passwords
+- view company-scoped audit events
+
+### 7. Institution ZKP login mode
+
+Use **Institution ZKP Login** when you want authentication via proof rather than password login.
+
+- Institution ID (public)
+- Secret remains on client
+- Frontend generates proof/public signals
+- Backend verifies proof and grants session token
+
+### 8. Run tests
 
 ```bash
-cd test && node component4-verification.test.js
+cd ../test
+node component4-verification.test.js
 ```
 
-### 6. Run Certora formal verification
+### 9. Run Certora formal verification
 
 ```bash
 export CERTORAKEY=<your-certora-api-key>
@@ -130,12 +197,42 @@ bash formal-verification/run-verification.sh
 
 - The backend expects the official anchored dataset to be available at the live Merkle-root/IPFS endpoint.
 - Merkle roots are normalized before comparison using `root.toLowerCase().replace(/^0x/, '')`.
-- Secrets are never stored in localStorage, source code, or API responses.
-- The login secret is handled separately from the academic grade proof.
+- Grade verification uses the bridge endpoint `POST /proof/merkle-proof` and validates the returned official hash + Merkle path.
+- Role-based account sessions are required for transcript and grade verification endpoints.
+- Secrets are never returned in API responses.
+
+## API Endpoints Used By Component 4
+
+- `GET /proof/{MERKLE_ROOT}`: anchored blockchain proof metadata (`merkleRoot`, `ipfsCID`, `timestamp`, `uploadedBy`).
+- `GET /proof/{MERKLE_ROOT}/data`: finalized dataset records for the root.
+- `POST /proof/merkle-proof`: official record hash + leaf index + Merkle proof for one candidate/module.
+- `GET /api/auth/companies`: available company list for verifier login.
+- `POST /api/auth/login`: company verifier login (`companyId`, `email`, `password`).
+- `POST /api/auth/signup`: public company onboarding (`companyId`, `companyName`, `adminName`, `adminEmail`, `adminPassword`).
+- `GET /api/auth/me`: current authenticated session profile.
+- `GET /api/admin/users`: admin-only list users in admin's company and current password policy.
+- `POST /api/admin/users`: admin-only create user (`email`, `name`, `role`, `password`).
+- `PATCH /api/admin/users/{email}`: admin-only update role and/or rotate password.
+- `GET /api/admin/audit?limit=40`: admin-only audit events for current company.
+
+Example request:
+
+```http
+POST http://localhost:3000/proof/merkle-proof
+Content-Type: application/json
+
+{
+	"merkleRoot": "0xcb724294241df65a74414905038457ff8bde3671635f518612a25f7978de58c9",
+	"candidateId": "IT001",
+	"moduleCode": "SE3050"
+}
+```
 
 ## Security Properties
 
-- **Institution privacy** — the login secret stays private and is never transmitted to the backend.
+- **Role-based access** — only authenticated verifier roles can call protected verification APIs.
+- **Brute-force protection** — failed login attempts trigger temporary account lockout.
+- **Credential hygiene** — password policy enforced for user creation and password resets.
 - **Record integrity** — the portal checks the official hash stored in the finalized dataset.
 - **Merkle membership** — the record must belong to the anchored dataset.
 - **Access control** — verification endpoints reject unauthenticated requests.
