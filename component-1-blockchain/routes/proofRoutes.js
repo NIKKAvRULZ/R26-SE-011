@@ -1,6 +1,7 @@
 const express = require("express");
 
-const router = express.Router();
+const router =
+    express.Router();
 
 const proofController =
     require("../controllers/proofController");
@@ -43,18 +44,45 @@ router.post(
 // GET /proof/latest
 //
 // Returns the most recently anchored:
+//
 // - Merkle Root
 // - IPFS CID
 // - timestamp
 // - uploader
+// - block number
+// - transaction hash
 //
-// This allows the frontend / Component 4 to discover
-// the current official Merkle Root automatically.
+// Used by the current Component 1 frontend.
 // =====================================================
 
 router.get(
     "/proof/latest",
     proofController.getLatestProof
+);
+
+
+// =====================================================
+// COMPONENT 4 LOOKUP
+// =====================================================
+//
+// GET /proof/record/:candidateId/:moduleCode
+//
+// Finds the most recently anchored proof context for
+// a candidate + module.
+//
+// Returns:
+//
+// - candidateId
+// - moduleCode
+// - Merkle Root
+// - IPFS CID
+// - anchoredAt
+//
+// =====================================================
+
+router.get(
+    "/proof/record/:candidateId/:moduleCode",
+    proofController.getRecordProofContext
 );
 
 
@@ -65,6 +93,7 @@ router.get(
 // GET /proof/:merkleRoot
 //
 // Returns:
+//
 // - Merkle Root
 // - IPFS CID
 // - timestamp

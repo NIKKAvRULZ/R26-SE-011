@@ -14,6 +14,9 @@ const {
     getFromIPFS
 } = require("../utils/ipfs");
 
+const ResultProofIndex =
+    require("../models/ResultProofIndex");
+
 
 // =====================================================
 // LOAD SMART CONTRACT ABI
@@ -191,7 +194,9 @@ exports.generateProofManifest =
             if (!globalMerkleRoot) {
 
                 return res.status(500).json({
+
                     success: false,
+
                     message:
                         "Merkle Root generation failed."
                 });
@@ -321,7 +326,7 @@ exports.generateProofManifest =
 
 
             // =================================================
-            // STORE PROOF
+            // STORE PROOF ON BLOCKCHAIN
             // =================================================
 
             const tx =
@@ -351,6 +356,83 @@ exports.generateProofManifest =
 
 
             // =================================================
+            // STORE CANDIDATE -> ROOT/CID LOOKUP INDEX
+            // =================================================
+            //
+            // IMPORTANT:
+            // This happens ONLY after the blockchain
+            // transaction has been confirmed.
+            //
+            // Version is intentionally NOT stored in this
+            // lookup index.
+            //
+            // =================================================
+// =====================================================
+// STORE CANDIDATE -> ROOT/CID LOOKUP INDEX
+// =====================================================
+//
+// Blockchain anchoring has already succeeded at this point.
+//
+// A MongoDB index failure must NOT turn a successful
+// blockchain anchor into HTTP 500. Otherwise Component 2
+// may retry the same Merkle Root, which the smart contract
+// correctly rejects as already anchored.
+//
+// =====================================================
+
+const anchoredAt = new Date();
+
+const indexDocuments =
+    finalizedRecords.map(
+        (record) => ({
+            candidateId:
+                record.candidateId,
+
+            moduleCode:
+                record.moduleCode,
+
+            merkleRoot:
+                formattedMerkleRoot,
+
+            ipfsCID:
+                ipfsCID,
+
+            anchoredAt:
+                anchoredAt
+        })
+    );
+
+let proofIndexReady = true;
+let proofIndexError = null;
+
+try {
+
+    if (indexDocuments.length > 0) {
+
+        await ResultProofIndex.insertMany(
+            indexDocuments
+        );
+    }
+
+    console.log(
+        `Proof lookup index updated for ${indexDocuments.length} record(s).`
+    );
+
+} catch (indexError) {
+
+    proofIndexReady = false;
+
+    proofIndexError =
+        indexError.message;
+
+    console.error(
+        "Blockchain anchor succeeded, but Proof Index update failed:",
+        indexError.message
+    );
+}
+
+
+            // =================================================
             // RETURN RESPONSE
             // =================================================
 
@@ -377,24 +459,34 @@ exports.generateProofManifest =
                         receipt.from
                 },
 
+proofData: {
 
-                proofData: {
+    merkleRoot:
+        globalMerkleRoot,
 
-                    merkleRoot:
-                        globalMerkleRoot,
+    ipfsCID:
+        ipfsCID,
 
-                    ipfsCID:
-                        ipfsCID,
+    totalRecordsProcessed:
+        finalizedRecords.length,
 
-                    totalRecordsProcessed:
-                        finalizedRecords.length,
+    indexRecordsStored:
+        proofIndexReady
+            ? indexDocuments.length
+            : 0,
 
-                    storageStatus:
-                        "Decentralized IPFS Immutable Storage Layer Confirmed",
+    storageStatus:
+        "Decentralized IPFS Immutable Storage Layer Confirmed",
 
-                    blockchainReady:
-                        true
-                }
+    blockchainReady:
+        true,
+
+    proofIndexReady:
+        proofIndexReady,
+
+    proofIndexError:
+        proofIndexError
+}
 
             });
 
@@ -426,14 +518,9 @@ exports.generateProofManifest =
 //
 // GET /proof/latest
 //
-// IMPORTANT:
-// We do NOT call getLatestProof() on the smart contract.
+// Uses the ProofAnchored blockchain event instead of
+// getLatestProof(), so the existing contract ABI is enough.
 //
-// Instead, we read the most recent ProofAnchored event.
-// Your current ABI already contains this event.
-//
-// This avoids the old ABI mismatch and keeps the existing
-// smart contract storage model unchanged.
 // =====================================================
 
 exports.getLatestProof =
@@ -447,7 +534,7 @@ exports.getLatestProof =
 
 
             // =================================================
-            // CONNECT TO BLOCKCHAIN
+            // READ-ONLY PROVIDER
             // =================================================
 
             const provider =
@@ -457,7 +544,7 @@ exports.getLatestProof =
 
 
             // =================================================
-            // CHECK CONTRACT DEPLOYMENT
+            // CHECK CONTRACT
             // =================================================
 
             const contractCode =
@@ -477,7 +564,7 @@ exports.getLatestProof =
 
 
             // =================================================
-            // READ-ONLY CONTRACT
+            // CONTRACT INSTANCE
             // =================================================
 
             const proofStorageContract =
@@ -505,7 +592,7 @@ exports.getLatestProof =
 
 
             // =================================================
-            // NO ANCHORED PROOF
+            // NO EVENTS
             // =================================================
 
             if (
@@ -524,16 +611,12 @@ exports.getLatestProof =
 
 
             // =================================================
-            // GET MOST RECENT EVENT
+            // MOST RECENT EVENT
             // =================================================
 
             const latestEvent =
                 events[events.length - 1];
 
-
-            // =================================================
-            // READ EVENT VALUES
-            // =================================================
 
             const eventArgs =
                 latestEvent.args;
@@ -554,10 +637,6 @@ exports.getLatestProof =
                 eventArgs?.[2];
 
 
-            // =================================================
-            // VALIDATE EVENT DATA
-            // =================================================
-
             if (
                 !merkleRoot ||
                 !ipfsCID
@@ -570,7 +649,7 @@ exports.getLatestProof =
 
 
             // =================================================
-            // GET BLOCK TIMESTAMP
+            // BLOCK TIMESTAMP
             // =================================================
 
             let timestamp =
@@ -601,7 +680,7 @@ exports.getLatestProof =
 
 
             // =================================================
-            // RETURN LATEST PROOF
+            // RETURN
             // =================================================
 
             return res.status(200).json({
@@ -647,6 +726,152 @@ exports.getLatestProof =
 
                 message:
                     "Unable to retrieve the latest anchored proof.",
+
+                error:
+                    error.message
+            });
+        }
+    };
+
+
+// =====================================================
+// GET CANDIDATE + MODULE PROOF CONTEXT
+// =====================================================
+//
+// GET /proof/record/:candidateId/:moduleCode
+//
+// Used by Component 4 to discover which anchored Merkle
+// Root and IPFS CID contain the requested candidate/module.
+//
+// =====================================================
+
+exports.getRecordProofContext =
+    async (req, res) => {
+
+        try {
+
+            const {
+                candidateId,
+                moduleCode
+            } = req.params;
+
+
+            // =================================================
+            // VALIDATE REQUEST
+            // =================================================
+
+            if (
+                !candidateId ||
+                !moduleCode
+            ) {
+
+                return res.status(400).json({
+
+                    success: false,
+
+                    message:
+                        "Candidate ID and module code are required."
+                });
+            }
+
+
+            const normalizedCandidateId =
+                candidateId.trim();
+
+            const normalizedModuleCode =
+                moduleCode.trim();
+
+
+            // =================================================
+            // QUERY LATEST INDEX ENTRY
+            // =================================================
+
+            const indexEntry =
+                await ResultProofIndex
+                    .findOne({
+
+                        candidateId:
+                            normalizedCandidateId,
+
+                        moduleCode:
+                            normalizedModuleCode
+
+                    })
+                    .sort({
+
+                        anchoredAt:
+                            -1
+
+                    })
+                    .lean();
+
+
+            // =================================================
+            // NOT FOUND
+            // =================================================
+
+            if (
+                !indexEntry
+            ) {
+
+                return res.status(404).json({
+
+                    success: false,
+
+                    message:
+                        "No anchored proof index found for this candidate and module.",
+
+                    candidateId:
+                        normalizedCandidateId,
+
+                    moduleCode:
+                        normalizedModuleCode
+                });
+            }
+
+
+            // =================================================
+            // RETURN LOOKUP RESULT
+            // =================================================
+
+            return res.status(200).json({
+
+                success: true,
+
+                record: {
+
+                    candidateId:
+                        indexEntry.candidateId,
+
+                    moduleCode:
+                        indexEntry.moduleCode,
+
+                    merkleRoot:
+                        indexEntry.merkleRoot,
+
+                    ipfsCID:
+                        indexEntry.ipfsCID,
+
+                    anchoredAt:
+                        indexEntry.anchoredAt
+                }
+
+            });
+
+        } catch (error) {
+
+            console.error(
+                "Proof index lookup error:",
+                error
+            );
+
+
+            return res.status(500).json({
+
+                success: false,
+
+                message:
+                    "Unable to retrieve the anchored proof lookup.",
 
                 error:
                     error.message
