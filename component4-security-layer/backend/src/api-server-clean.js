@@ -269,6 +269,26 @@ app.get('/api/verify/source', async (_req, res) => {
   return res.json({ success: true, source });
 });
 
+// Local Component 1 contract emulator. It returns only the finalized anchor
+// reference for a record; marks and the official grade never leave this route.
+app.get('/proof/record/:candidateId/:moduleCode', async (req, res) => {
+  try {
+    const payload = (await readLocalVerifiedDataset()) || IPFS_DATASET_PAYLOAD;
+    const records = Array.isArray(payload?.data?.recordsWithHashes) ? payload.data.recordsWithHashes : [];
+    const candidateId = String(req.params.candidateId || '').trim().toUpperCase().replace(/\s+/g, '');
+    const moduleCode = String(req.params.moduleCode || '').trim().toUpperCase().replace(/\s+/g, '');
+    const record = records.find((item) => String(item.candidateId || '').trim().toUpperCase() === candidateId && String(item.moduleCode || '').trim().toUpperCase() === moduleCode);
+    if (!record) return res.status(404).json({ success: false, error: 'Finalized record reference not found' });
+
+    const merkleRoot = normalizeMerkleRoot(payload?.verificationSource?.blockchain?.merkleRoot || payload?.data?.merkleRoot || '');
+    const ipfsCID = payload?.verificationSource?.blockchain?.ipfsCID || payload?.data?.ipfsCID || null;
+    if (!merkleRoot || !ipfsCID) return res.status(503).json({ success: false, error: 'Finalized anchor unavailable' });
+    return res.json({ success: true, record: { candidateId, moduleCode, version: record.version || 1, merkleRoot: formatRootWithPrefix(merkleRoot), ipfsCID } });
+  } catch (_error) {
+    return res.status(500).json({ success: false, error: 'Unable to resolve finalized record reference' });
+  }
+});
+
 app.get('/proof/:merkleRoot', async (req, res) => {
   try {
     const requestedRoot = normalizeMerkleRoot(req.params.merkleRoot);

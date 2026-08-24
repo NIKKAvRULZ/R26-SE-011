@@ -520,9 +520,9 @@ function AuthenticatedView({ account, session, onLogout }) {
   const currentRole = (account?.user?.role || session?.role || 'verifier').toLowerCase();
   const isAdmin = currentRole === 'admin';
   const [portalMode, setPortalMode] = useState('grade');
-  const [candidateId, setCandidateId] = useState('IT001');
-  const [moduleCode, setModuleCode] = useState('SE3050');
-  const [claimedGrade, setClaimedGrade] = useState('A');
+  const [candidateId, setCandidateId] = useState('');
+  const [moduleCode, setModuleCode] = useState('');
+  const [claimedGrade, setClaimedGrade] = useState('');
   const [verificationResult, setVerificationResult] = useState(null);
   const [loadingVerification, setLoadingVerification] = useState(false);
   const [transcriptResult, setTranscriptResult] = useState(null);
@@ -586,6 +586,7 @@ function AuthenticatedView({ account, session, onLogout }) {
   async function verifyGrade() {
     setLoadingVerification(true);
     setError('');
+    setTranscriptResult(null);
 
     try {
       // The browser sends a claim only. Component 4 resolves the anchor and
@@ -616,6 +617,9 @@ function AuthenticatedView({ account, session, onLogout }) {
         method: 'POST',
         body: JSON.stringify({ candidateId }),
       });
+      // Keep the presentation state in sync with the binary response. The
+      // decision is still rendered from transcriptResult in transcript mode.
+      setVerificationResult(payload);
       setTranscriptResult(payload);
     } catch (requestError) {
       setError(requestError.message);
@@ -859,11 +863,11 @@ function AuthenticatedView({ account, session, onLogout }) {
 
               <div className="button-row">
                 {portalMode === 'grade' ? (
-                  <button type="button" className="primary-button" onClick={verifyGrade} disabled={loadingVerification}>
+                  <button type="button" className="primary-button" onClick={verifyGrade} disabled={loadingVerification || !candidateId.trim() || !moduleCode.trim() || !claimedGrade.trim()}>
                     {loadingVerification ? 'Verifying...' : 'Verify CV Claim'}
                   </button>
                 ) : (
-                  <button type="button" className="primary-button" onClick={verifyTranscript} disabled={loadingTranscript}>
+                  <button type="button" className="primary-button" onClick={verifyTranscript} disabled={loadingTranscript || !candidateId.trim()}>
                     {loadingTranscript ? 'Verifying...' : 'Verify Full Transcript'}
                   </button>
                 )}

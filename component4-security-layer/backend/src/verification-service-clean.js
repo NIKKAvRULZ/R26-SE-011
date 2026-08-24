@@ -130,7 +130,12 @@ async function appendEmailOutbox(message) {
 function createVerificationService(options = {}) {
   // This must be Component 1 in a deployed system. Component 4 never selects a
   // root itself: Component 1 maps candidate + module to the anchored root/CID.
-  const dataBaseUrl = (options.dataBaseUrl || process.env.ACADEMIC_DATA_BASE_URL || 'http://localhost:3000/proof').replace(/\/$/, '');
+  // Development can exercise the entire Component 1 contract against the
+  // local mock endpoints. Set this to false once Component 1 provides its
+  // deployed base URL and API contract.
+  const useComponent1Mock = String(process.env.MOCK_COMPONENT1_ENABLED || 'false').toLowerCase() === 'true';
+  const mockBaseUrl = `http://localhost:${process.env.PORT || 3000}/proof`;
+  const dataBaseUrl = (options.dataBaseUrl || (useComponent1Mock ? mockBaseUrl : process.env.ACADEMIC_DATA_BASE_URL) || mockBaseUrl).replace(/\/$/, '');
   const fetchImpl = options.fetchImpl || global.fetch;
   const verifyProofImpl = options.verifyProofImpl || null;
   const authenticateTokenImpl = options.authenticateTokenImpl || null;
