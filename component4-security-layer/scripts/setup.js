@@ -38,11 +38,33 @@ const CIRCUITS = [
     file: path.join(ROOT, "circuits", "loginVerifier.circom"),
     verificationKey: path.join(BUILD_DIR, "loginVerifier_verification_key.json"),
   },
+  {
+    name: "claimBoundVerifier",
+    file: path.join(ROOT, "circuits", "claimBoundVerifier.circom"),
+    verificationKey: path.join(BUILD_DIR, "claimBoundVerifier_verification_key.json"),
+  },
 ];
 
 const PTAU_0 = path.join(BUILD_DIR, "pot12_0000.ptau");
 const PTAU_1 = path.join(BUILD_DIR, "pot12_0001.ptau");
 const PTAU_FINAL = path.join(BUILD_DIR, "pot12_final.ptau");
+
+function regenerateSolidityVerifier(zkeyPath) {
+  const outputPath = path.join(ROOT, 'contracts', 'Groth16VerifierCore.sol');
+  const snarkjsCli = path.join(NODE_MODULES, 'snarkjs', 'build', 'cli.cjs');
+  execSync(`"${process.execPath}" "${snarkjsCli}" zkey export solidityverifier "${zkeyPath}" "${outputPath}"`, { stdio: 'inherit' });
+
+  const generated = fs.readFileSync(outputPath, 'utf8')
+    .replace('contract Groth16Verifier {', 'abstract contract Groth16VerifierCore {')
+    .replace(
+      'function verifyProof(uint[2] calldata _pA, uint[2][2] calldata _pB, uint[2] calldata _pC, uint[1] calldata _pubSignals) public view returns (bool) {',
+      'function verifyGroth16Proof(uint[2] calldata _pA, uint[2][2] calldata _pB, uint[2] calldata _pC, uint[1] calldata _pubSignals) internal view returns (bool result) {',
+    )
+    .replace(/\s*checkField\(calldataload\(add\(_pubSignals, 32\)\)\)\s*/, '\n')
+    .replace(/\s*mstore\(0, isValid\)\s*return\(0, 0x20\)/, '\n            result := isValid');
+
+  fs.writeFileSync(outputPath, generated, 'utf8');
+}
 
 // ── Find the circom binary ────────────────────────────────────────────────
 function findCircom() {
@@ -120,6 +142,7 @@ async function main() {
     console.log(`[ 5 / 5 ]  Exporting ${circuit.name} verification key ...`);
     const vk = await snarkjs.zKey.exportVerificationKey(zkeyFinalPath);
     fs.writeFileSync(circuit.verificationKey, JSON.stringify(vk, null, 2));
+    if (circuit.name === 'gradeVerifier') regenerateSolidityVerifier(zkeyFinalPath);
     console.log(`           ✓ Verification key  →  ${path.relative(ROOT, circuit.verificationKey)}\n`);
   }
 
@@ -133,6 +156,7 @@ async function main() {
   console.log("     build/*_final.zkey                    proving keys");
   console.log("     build/verification_key.json            grade verifying key");
   console.log("     build/loginVerifier_verification_key.json  login verifying key");
+  console.log("     build/claimBoundVerifier_verification_key.json  claim-bound verifying key");
   console.log();
   console.log("  Next steps:");
   console.log("     npm run generate    →  generate ZKP proof from grade");

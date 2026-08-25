@@ -20,9 +20,7 @@ echo ""
 
 certoraRun \
   "${CONTRACTS_DIR}/GradeVerifier.sol" \
-  --verify "GradeVerifier:${SPECS_DIR}/access-control.cvl" \
-  --verify "GradeVerifier:${SPECS_DIR}/state-invariants.cvl" \
-  --verify "GradeVerifier:${SPECS_DIR}/arithmetic-safety.cvl" \
+  --verify "GradeVerifier:${SPECS_DIR}/grade-verifier.cvl" \
   --solc solc \
   --solc_args "--optimize --optimize-runs 200" \
   --msg "GradeVerifier formal verification run" \

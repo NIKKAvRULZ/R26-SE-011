@@ -3,8 +3,10 @@ const path = require('path');
 const crypto = require('node:crypto');
 const jwt = require('./jwt-adapter');
 const snarkjs = require('snarkjs');
+const { buildPoseidon } = require('circomlibjs');
 const {
   canonicalRecordString,
+  canonicalizeGrade,
   canonicalizeIdentifier,
   gradeToGpa,
   getMerkleProof,
@@ -35,11 +37,50 @@ const {
   resetPasswordWithToken,
   addAuditEvent,
 } = require('./company-accounts');
-const { IPFS_DATASET_PAYLOAD } = require('./dataset-store');
 const { recordVerificationAttempt } = require('./mongo-verification-store');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const EMAIL_OUTBOX_FILE = path.join(DATA_DIR, 'email-outbox.json');
+const FIELD_MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
+let poseidonPromise;
+
+function textField(value) {
+  return BigInt(`0x${sha256Hex(String(value))}`) % FIELD_MODULUS;
+}
+
+function rootLimbs(root) {
+  const normalized = normalizeMerkleRoot(root).padStart(64, '0');
+  return {
+    low: BigInt(`0x${normalized.slice(32)}`),
+    high: BigInt(`0x${normalized.slice(0, 32)}`),
+  };
+}
+
+async function claimPublicSignals({ candidateId, moduleCode, grade, merkleRoot }) {
+  poseidonPromise ||= buildPoseidon();
+  const poseidon = await poseidonPromise;
+  const candidateField = textField(canonicalizeIdentifier(candidateId));
+  const moduleField = textField(canonicalizeIdentifier(moduleCode));
+  const gradeValue = gradeToCircuitValue(grade);
+  const limbs = rootLimbs(merkleRoot);
+  const claim = poseidon([candidateField, moduleField, BigInt(gradeValue), limbs.low, limbs.high]);
+  const candidateCommitment = poseidon([candidateField]);
+  const moduleCommitment = poseidon([moduleField]);
+  return {
+    candidateField: candidateField.toString(), moduleField: moduleField.toString(), gradeValue: String(gradeValue),
+    rootLow: limbs.low.toString(), rootHigh: limbs.high.toString(),
+    claimCommitment: poseidon.F.toString(claim),
+    candidateCommitment: poseidon.F.toString(candidateCommitment),
+    moduleCommitment: poseidon.F.toString(moduleCommitment),
+  };
+}
+
+function gradeToCircuitValue(grade) {
+  const map = { F: 0, D: 1, 'C-': 2, C: 3, 'C+': 4, 'B-': 5, B: 6, 'B+': 7, 'A-': 8, A: 9, 'A+': 10 };
+  const normalized = canonicalizeGrade(grade);
+  if (!(normalized in map)) throw new Error(`Unsupported grade for ZKP circuit: ${normalized}`);
+  return map[normalized];
+}
 
 const ACCESS_TOKEN_SECRET = process.env.JWT_ACCESS_SECRET || 'component4-dev-access-secret-change-me';
 const REFRESH_TOKEN_SECRET = process.env.JWT_REFRESH_SECRET || 'component4-dev-refresh-secret-change-me';
@@ -66,6 +107,43 @@ async function persistJson(filePath, value) {
 
 function randomId() {
   return crypto.randomBytes(16).toString('hex');
+}
+
+// Component 1's finalized ledger uses SHA-256 over the textual concatenation
+// of hexadecimal child hashes. Keep this implementation isolated from the
+// legacy byte-concatenation Merkle helper used by local Component 4 fixtures.
+function component1HashPair(left, right) {
+  return crypto.createHash('sha256').update(`${normalizeMerkleRoot(left)}${normalizeMerkleRoot(right)}`, 'utf8').digest('hex');
+}
+
+function component1LeafHash(record) {
+  return sha256Hex([record.candidateId, record.moduleCode, record.marks, record.grade, record.version].join('|'));
+}
+
+function verifyComponent1MerkleProof(leafHash, proof, expectedRoot) {
+  let current = normalizeMerkleRoot(leafHash);
+  for (const step of proof || []) {
+    const sibling = normalizeMerkleRoot(step.sibling || step.hash || '');
+    if (!sibling || !['left', 'right'].includes(step.position)) return false;
+    current = step.position === 'left' ? component1HashPair(sibling, current) : component1HashPair(current, sibling);
+  }
+  return current === normalizeMerkleRoot(expectedRoot);
+}
+
+function component1MerkleProof(leaves, leafIndex) {
+  const proof = [];
+  let level = leaves.map((item) => normalizeMerkleRoot(item));
+  let index = leafIndex;
+  while (level.length > 1) {
+    if (level.length % 2) level.push(level[level.length - 1]);
+    const isRight = index % 2 === 1;
+    proof.push({ position: isRight ? 'left' : 'right', hash: level[isRight ? index - 1 : index + 1] });
+    const next = [];
+    for (let cursor = 0; cursor < level.length; cursor += 2) next.push(component1HashPair(level[cursor], level[cursor + 1]));
+    level = next;
+    index = Math.floor(index / 2);
+  }
+  return proof;
 }
 
 function parseDurationMs(value, fallbackMs) {
@@ -133,9 +211,11 @@ function createVerificationService(options = {}) {
   // Development can exercise the entire Component 1 contract against the
   // local mock endpoints. Set this to false once Component 1 provides its
   // deployed base URL and API contract.
-  const useComponent1Mock = String(process.env.MOCK_COMPONENT1_ENABLED || 'false').toLowerCase() === 'true';
-  const mockBaseUrl = `http://localhost:${process.env.PORT || 3000}/proof`;
-  const dataBaseUrl = (options.dataBaseUrl || (useComponent1Mock ? mockBaseUrl : process.env.ACADEMIC_DATA_BASE_URL) || mockBaseUrl).replace(/\/$/, '');
+  const configuredDataBaseUrl = options.dataBaseUrl || process.env.ACADEMIC_DATA_BASE_URL;
+  if (!configuredDataBaseUrl) {
+    throw new Error('ACADEMIC_DATA_BASE_URL must point to the Component 1 proof API');
+  }
+  const dataBaseUrl = configuredDataBaseUrl.replace(/\/$/, '');
   const fetchImpl = options.fetchImpl || global.fetch;
   const verifyProofImpl = options.verifyProofImpl || null;
   const authenticateTokenImpl = options.authenticateTokenImpl || null;
@@ -151,6 +231,12 @@ function createVerificationService(options = {}) {
     path.resolve(__dirname, '..', '..', 'build', 'gradeVerifier_verification_key.json'),
     path.resolve(__dirname, '..', '..', 'build', 'gradeVerifier_vkey.json'),
   ];
+  const claimVerificationKeyPaths = options.claimVerificationKeyPaths || [
+    path.resolve(__dirname, '..', '..', 'build', 'claimBoundVerifier_verification_key.json'),
+    path.resolve(__dirname, '..', '..', 'build', 'claimBoundVerifier_vkey.json'),
+  ];
+  const claimWasmPath = options.claimWasmPath || path.resolve(__dirname, '..', '..', 'build', 'claimBoundVerifier_js', 'claimBoundVerifier.wasm');
+  const claimZkeyPath = options.claimZkeyPath || path.resolve(__dirname, '..', '..', 'build', 'claimBoundVerifier_final.zkey');
 
   async function loadVerificationKey(candidatePaths) {
     for (const candidatePath of candidatePaths) {
@@ -355,48 +441,17 @@ function createVerificationService(options = {}) {
   }
 
   async function readVerificationSource() {
-    const candidates = [
-      path.resolve(__dirname, '..', '..', 'proof-output', 'public.json'),
-      path.resolve(__dirname, '..', '..', 'proof-output', 'proof-summary.json'),
-    ];
-
-    for (const candidatePath of candidates) {
-      const payload = await readJsonIfExists(candidatePath);
-      if (payload?.verificationSource?.blockchain) {
-        const blockchain = payload.verificationSource.blockchain;
-        return {
-          merkleRoot: normalizeMerkleRoot(blockchain.merkleRoot || payload.data?.merkleRoot),
-          ipfsCID: blockchain.ipfsCID || payload.data?.ipfsCID || null,
-          timestamp: blockchain.timestamp || payload.data?.generatedAt || null,
-          uploadedBy: blockchain.uploadedBy || null,
-        };
-      }
-      if (payload?.data?.merkleRoot) {
-        return {
-          merkleRoot: normalizeMerkleRoot(payload.data.merkleRoot),
-          ipfsCID: payload.verificationSource?.blockchain?.ipfsCID || null,
-          timestamp: payload.data?.generatedAt || null,
-          uploadedBy: payload.verificationSource?.blockchain?.uploadedBy || null,
-        };
-      }
+    const payload = await fetchJson(`${dataBaseUrl}/latest`);
+    const proof = payload?.proof || payload;
+    const merkleRoot = normalizeMerkleRoot(proof?.merkleRoot);
+    if (!payload?.success || !merkleRoot || !proof?.ipfsCID) {
+      throw new Error('Component 1 returned an invalid latest-anchor response');
     }
-
     return {
-      merkleRoot: normalizeMerkleRoot(
-        process.env.ACADEMIC_MERKLE_ROOT ||
-          IPFS_DATASET_PAYLOAD?.verificationSource?.blockchain?.merkleRoot ||
-          IPFS_DATASET_PAYLOAD?.data?.merkleRoot ||
-          '',
-      ),
-      ipfsCID:
-        process.env.ACADEMIC_IPFS_CID ||
-        IPFS_DATASET_PAYLOAD?.verificationSource?.blockchain?.ipfsCID ||
-        null,
-      timestamp:
-        IPFS_DATASET_PAYLOAD?.verificationSource?.blockchain?.timestamp ||
-        IPFS_DATASET_PAYLOAD?.data?.generatedAt ||
-        null,
-      uploadedBy: IPFS_DATASET_PAYLOAD?.verificationSource?.blockchain?.uploadedBy || null,
+      merkleRoot,
+      ipfsCID: proof.ipfsCID,
+      timestamp: proof.timestamp || null,
+      uploadedBy: proof.uploadedBy || null,
     };
   }
 
@@ -416,9 +471,18 @@ function createVerificationService(options = {}) {
     });
   }
 
+  async function generateBoundClaimProof({ candidateId, moduleCode, grade, merkleRoot }) {
+    const input = await claimPublicSignals({ candidateId, moduleCode, grade, merkleRoot });
+    const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, claimWasmPath, claimZkeyPath);
+    return { proof, publicSignals, input };
+  }
+
   async function fetchAnchoredMetadata(merkleRoot) {
     const normalizedRoot = normalizeMerkleRoot(merkleRoot);
-    return fetchJson(`${dataBaseUrl}/${normalizedRoot}`);
+    const payload = await fetchJson(`${dataBaseUrl}/${normalizedRoot}`);
+    // Component 1 may return anchor data directly or wrap it as { proof: {} }.
+    // Normalize the contract so both formats remain compatible.
+    return payload?.proof ? { success: payload.success, ...payload.proof } : payload;
   }
 
   async function lookupAnchoredRecord({ candidateId, moduleCode, version }) {
@@ -516,8 +580,8 @@ function createVerificationService(options = {}) {
       return { success: false, status: 404, error: 'Unknown institution' };
     }
 
-    const normalizedSignals = Array.isArray(publicSignals) ? publicSignals.map((value) => normalizeMerkleRoot(value)) : [];
-    const normalizedCommitment = normalizeMerkleRoot(commitment || normalizedSignals[0] || '');
+    const normalizedSignals = Array.isArray(publicSignals) ? publicSignals.map((value) => String(value ?? '').trim()) : [];
+    const normalizedCommitment = String(commitment || normalizedSignals[0] || '').trim();
 
     if (normalizedCommitment !== institution.commitment) {
       return { success: false, status: 403, error: 'Institution commitment mismatch' };
@@ -916,19 +980,28 @@ function createVerificationService(options = {}) {
       return failure(502, 'Component 1 returned an invalid Merkle proof', 'INVALID_MERKLE_PROOF_RESPONSE');
     }
 
-    const officialHash = normalizeMerkleRoot(officialProof?.record?.hash || record.hash || '');
-    const submittedHash = sha256Hex(canonicalRecordString({
-      candidateId: normalizedCandidateId,
-      moduleCode: normalizedModuleCode,
-      grade: normalizedClaimedGrade,
-    }));
-    const hashValid = submittedHash === officialHash;
+    const officialRecord = officialProof?.record || record;
+    const officialHash = normalizeMerkleRoot(officialRecord?.hash || record.hash || '');
+    // Component 1's leaf commits to marks and version as well as the claim.
+    // Component 4 validates that official leaf locally, then compares only the
+    // employer-supplied grade; raw official values never leave this backend.
+    const usesComponent1MerkleContract = Array.isArray(officialProof?.proof) && officialProof.proof.some((step) => Object.prototype.hasOwnProperty.call(step, 'hash'));
+    const officialLeafValid = usesComponent1MerkleContract
+      ? officialHash === normalizeMerkleRoot(component1LeafHash(officialRecord))
+      : officialHash === normalizeMerkleRoot(sha256Hex(canonicalRecordString({ candidateId: normalizedCandidateId, moduleCode: normalizedModuleCode, grade: normalizedClaimedGrade })));
+    const claimTargetsOfficialRecord =
+      canonicalizeIdentifier(officialRecord.candidateId) === normalizedCandidateId &&
+      canonicalizeIdentifier(officialRecord.moduleCode) === normalizedModuleCode &&
+      canonicalizeGrade(officialRecord.grade) === normalizedClaimedGrade;
+    const hashValid = officialLeafValid && claimTargetsOfficialRecord;
     checks.hashMatch = hashValid;
 
     const officialProofRoot = normalizeMerkleRoot(officialProof.merkleRoot || verificationDataset.blockchainRoot);
     const proof = officialProof.proof;
     const proofFromEndpointValid = officialProof.proofVerified === true;
-    const locallyReconstructedValid = verifyMerkleProof(officialHash, proof, officialProofRoot);
+    const locallyReconstructedValid = usesComponent1MerkleContract
+      ? verifyComponent1MerkleProof(officialHash, proof, officialProofRoot)
+      : verifyMerkleProof(officialHash, proof, officialProofRoot);
     const merkleValid =
       proofFromEndpointValid &&
       locallyReconstructedValid &&
@@ -937,12 +1010,40 @@ function createVerificationService(options = {}) {
     checks.merkleProofValid = merkleValid;
 
     const zkpRequired = String(process.env.REQUIRE_GRADE_ZKP || 'false').toLowerCase() === 'true';
-    if (zkpRequired && (!gradeProof || !gradePublicSignals)) {
-      return failure(400, 'A grade ZKP is required by verification policy', 'ZKP_PROOF_REQUIRED');
+    let zkpValid = true;
+    if (zkpRequired) {
+      // The portal does not receive the official grade/marks.  Component 4
+      // therefore creates a short-lived bound proof from the authenticated
+      // Component 1 response when the client has not supplied one.  A client
+      // supplied proof is accepted only when it uses the five-signal bound
+      // circuit, preventing replay of the legacy grade-only proof.
+      let proofToVerify = gradeProof;
+      let signalsToVerify = gradePublicSignals;
+      if (!proofToVerify || !Array.isArray(signalsToVerify) || signalsToVerify.length !== 5) {
+        if (!claimTargetsOfficialRecord) {
+          return failure(400, 'A claim-bound ZKP is required and the claimed grade is not official', 'ZKP_PROOF_REQUIRED');
+        }
+        try {
+          const generated = await generateBoundClaimProof({
+            candidateId: normalizedCandidateId,
+            moduleCode: normalizedModuleCode,
+            grade: normalizedClaimedGrade,
+            merkleRoot: verificationDataset.blockchainRoot,
+          });
+          proofToVerify = generated.proof;
+          signalsToVerify = generated.publicSignals;
+        } catch (_error) {
+          return failure(503, 'Claim-bound ZKP artifacts are unavailable', 'ZKP_ARTIFACTS_UNAVAILABLE');
+        }
+      }
+      zkpValid = Array.isArray(signalsToVerify) && signalsToVerify.length === 5
+        ? await verifyProof({ proof: proofToVerify, publicSignals: signalsToVerify, keyPaths: claimVerificationKeyPaths })
+        : false;
+    } else if (gradeProof && gradePublicSignals) {
+      // Backward-compatible opt-in verification for the original grade-only
+      // circuit while deployments migrate to the claim-bound artifact.
+      zkpValid = await verifyProof({ proof: gradeProof, publicSignals: gradePublicSignals, keyPaths: gradeVerificationKeyPaths });
     }
-    const zkpValid = gradeProof && gradePublicSignals
-      ? await verifyProof({ proof: gradeProof, publicSignals: gradePublicSignals, keyPaths: gradeVerificationKeyPaths })
-      : true;
     checks.zkpValid = zkpValid;
 
     const valid = checks.recordFound && checks.blockchainAnchorValid && checks.ipfsDatasetValid && checks.hashMatch && checks.merkleProofValid && checks.zkpValid;
@@ -1020,9 +1121,9 @@ function createVerificationService(options = {}) {
       const valid = candidateRecords.every((record) => {
         const recordIndex = records.indexOf(record);
         const hash = normalizeMerkleRoot(record.hash);
-        const canonicalHash = sha256Hex(canonicalRecordString({ candidateId: record.candidateId, moduleCode: record.moduleCode, grade: record.grade }));
-        const proof = getMerkleProof(allHashes, recordIndex);
-        return hash === canonicalHash && verifyMerkleProof(hash, proof, anchorRoot);
+        const canonicalHash = normalizeMerkleRoot(component1LeafHash(record));
+        const proof = component1MerkleProof(allHashes, recordIndex);
+        return hash === canonicalHash && verifyComponent1MerkleProof(hash, proof, anchorRoot);
       });
 
       const result = { success: valid, status: 200, valid, result: valid ? 'VALID' : 'INVALID' };

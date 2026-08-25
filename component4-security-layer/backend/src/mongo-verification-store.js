@@ -64,6 +64,11 @@ async function connectMongo() {
   return VerificationAttempt;
 }
 
+async function disconnectMongo() {
+  if (mongoose) await mongoose.disconnect();
+  connectionPromise = null;
+}
+
 async function recordVerificationAttempt({ session, candidateId, moduleCode, claimedGrade, result }) {
   const Model = await connectMongo();
   if (!Model) return false;
@@ -90,4 +95,4 @@ async function recordVerificationAttempt({ session, candidateId, moduleCode, cla
   return true;
 }
 
-module.exports = { connectMongo, recordVerificationAttempt };
+module.exports = { connectMongo, disconnectMongo, recordVerificationAttempt };

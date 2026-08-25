@@ -2,18 +2,14 @@ require('dotenv').config();
 
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const fs = require('fs/promises');
 const path = require('path');
 const { createVerificationService } = require('./verification-service-clean');
-const { normalizeMerkleRoot } = require('./verification-utils');
-const { getDatasetByMerkleRoot, IPFS_DATASET_PAYLOAD } = require('./dataset-store');
 const { connectMongo } = require('./mongo-verification-store');
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
 const verificationService = createVerificationService();
 
-app.use('/build', express.static(path.resolve(__dirname, '..', '..', 'build')));
 app.use(express.json({ limit: '2mb' }));
 app.disable('x-powered-by');
 
@@ -37,32 +33,6 @@ app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/signup', authLimiter);
 app.use('/api/auth/zkp', authLimiter);
 
-async function readLocalVerifiedDataset() {
-  const candidates = [
-    path.resolve(__dirname, '..', '..', 'proof-output', 'public.json'),
-    path.resolve(__dirname, '..', '..', 'proof-output', 'proof-summary.json'),
-  ];
-
-  for (const candidatePath of candidates) {
-    try {
-      const raw = await fs.readFile(candidatePath, 'utf8');
-      const payload = JSON.parse(raw);
-
-      if (payload?.verificationSource?.blockchain && payload?.data) {
-        return payload;
-      }
-
-      if (payload?.data?.recordsWithHashes) {
-        return payload;
-      }
-    } catch (_error) {
-      // continue
-    }
-  }
-
-  return null;
-}
-
 function extractToken(req) {
   const authorization = req.get('authorization') || '';
 
@@ -71,11 +41,6 @@ function extractToken(req) {
   }
 
   return req.body?.token || null;
-}
-
-function formatRootWithPrefix(rootValue) {
-  const normalized = normalizeMerkleRoot(rootValue);
-  return normalized ? `0x${normalized}` : null;
 }
 
 async function requireAuth(req, res, next) {
@@ -109,6 +74,19 @@ app.get('/api/health', (_req, res) => {
 app.get('/api/auth/companies', async (_req, res) => {
   const companies = await verificationService.listCompanies();
   res.json({ success: true, companies });
+});
+
+app.get('/api/auth/institutions', async (_req, res) => {
+  const institutions = await verificationService.listInstitutions();
+  return res.json({ success: true, institutions });
+});
+
+app.get('/api/auth/artifacts/login/wasm', (_req, res) => {
+  return res.sendFile(path.resolve(__dirname, '..', '..', 'build', 'loginVerifier_js', 'loginVerifier.wasm'));
+});
+
+app.get('/api/auth/artifacts/login/zkey', (_req, res) => {
+  return res.sendFile(path.resolve(__dirname, '..', '..', 'build', 'loginVerifier_final.zkey'));
 });
 
 app.post('/api/auth/login', async (req, res) => {
@@ -264,96 +242,31 @@ app.get('/api/admin/audit', requireAuth, requireRole(['admin']), async (req, res
   return res.json(result);
 });
 
-app.get('/api/verify/source', async (_req, res) => {
-  const source = await verificationService.readVerificationSource();
-  return res.json({ success: true, source });
+app.post('/api/admin/institutions', requireAuth, requireRole(['admin']), async (req, res) => {
+  const result = await verificationService.registerAdminInstitution({
+    sessionToken: req.authToken,
+    id: req.body?.id,
+    name: req.body?.name,
+    label: req.body?.label,
+    commitment: req.body?.commitment,
+  });
+  return res.status(result.status || (result.success ? 201 : 400)).json(result);
 });
 
-// Local Component 1 contract emulator. It returns only the finalized anchor
-// reference for a record; marks and the official grade never leave this route.
-app.get('/proof/record/:candidateId/:moduleCode', async (req, res) => {
+app.post('/api/auth/zkp', async (req, res) => {
   try {
-    const payload = (await readLocalVerifiedDataset()) || IPFS_DATASET_PAYLOAD;
-    const records = Array.isArray(payload?.data?.recordsWithHashes) ? payload.data.recordsWithHashes : [];
-    const candidateId = String(req.params.candidateId || '').trim().toUpperCase().replace(/\s+/g, '');
-    const moduleCode = String(req.params.moduleCode || '').trim().toUpperCase().replace(/\s+/g, '');
-    const record = records.find((item) => String(item.candidateId || '').trim().toUpperCase() === candidateId && String(item.moduleCode || '').trim().toUpperCase() === moduleCode);
-    if (!record) return res.status(404).json({ success: false, error: 'Finalized record reference not found' });
-
-    const merkleRoot = normalizeMerkleRoot(payload?.verificationSource?.blockchain?.merkleRoot || payload?.data?.merkleRoot || '');
-    const ipfsCID = payload?.verificationSource?.blockchain?.ipfsCID || payload?.data?.ipfsCID || null;
-    if (!merkleRoot || !ipfsCID) return res.status(503).json({ success: false, error: 'Finalized anchor unavailable' });
-    return res.json({ success: true, record: { candidateId, moduleCode, version: record.version || 1, merkleRoot: formatRootWithPrefix(merkleRoot), ipfsCID } });
-  } catch (_error) {
-    return res.status(500).json({ success: false, error: 'Unable to resolve finalized record reference' });
-  }
-});
-
-app.get('/proof/:merkleRoot', async (req, res) => {
-  try {
-    const requestedRoot = normalizeMerkleRoot(req.params.merkleRoot);
-    const source = await verificationService.readVerificationSource();
-    const sourceRoot = normalizeMerkleRoot(source?.merkleRoot || '');
-
-    if (!requestedRoot || !sourceRoot || requestedRoot !== sourceRoot) {
-      return res.status(404).json({ success: false, error: 'Merkle root not found on blockchain anchor' });
-    }
-
-    return res.json({
-      success: true,
-      merkleRoot: formatRootWithPrefix(sourceRoot),
-      ipfsCID: source.ipfsCID || null,
-      timestamp: source.timestamp || null,
-      uploadedBy: source.uploadedBy || null,
+    const result = await verificationService.verifyLoginProof({
+      institutionId: req.body?.institutionId,
+      commitment: req.body?.commitment,
+      proof: req.body?.proof,
+      publicSignals: req.body?.publicSignals,
     });
-  } catch (_error) {
-    return res.status(500).json({ success: false, error: 'Unable to load blockchain proof metadata' });
-  }
-});
-
-app.get('/proof/:merkleRoot/data', async (req, res) => {
-  const requestedRoot = normalizeMerkleRoot(req.params.merkleRoot);
-  const dataset = getDatasetByMerkleRoot(requestedRoot);
-
-  if (dataset) {
-    return res.json(dataset);
-  }
-
-  const payload = await readLocalVerifiedDataset();
-
-  if (!payload) {
-    return res.status(404).json({ success: false, error: 'Verification dataset unavailable' });
-  }
-
-  const blockchainRoot = normalizeMerkleRoot(payload?.verificationSource?.blockchain?.merkleRoot || payload?.data?.merkleRoot || '');
-  const dataRoot = normalizeMerkleRoot(payload?.data?.merkleRoot || blockchainRoot || '');
-
-  if (requestedRoot !== blockchainRoot && requestedRoot !== dataRoot) {
-    return res.status(404).json({ success: false, error: 'Verification dataset not found' });
-  }
-
-  return res.json(payload);
-});
-
-app.post('/proof/merkle-proof', async (req, res) => {
-  try {
-    const result = await verificationService.getMerkleProofForRecord({
-      merkleRoot: req.body?.merkleRoot,
-      candidateId: req.body?.candidateId,
-      moduleCode: req.body?.moduleCode,
-    });
-
-    if (!result.success) {
-      return res.status(result.status || 400).json({ success: false, error: result.error || 'Failed to generate Merkle proof' });
-    }
-
+    if (!result.success) return res.status(result.status || 401).json(result);
     return res.status(200).json(result);
   } catch (_error) {
-    return res.status(500).json({ success: false, error: 'Unable to generate Merkle proof for record' });
+    return res.status(500).json({ success: false, error: 'ZKP authentication failed' });
   }
 });
-
-app.post('/api/auth/zkp', (_req, res) => res.status(410).json({ success: false, error: 'Institution ZKP login is disabled. Use a registered company account.' }));
 
 app.post('/api/auth/logout', requireAuth, async (req, res) => {
   await verificationService.revokeToken({ refreshToken: req.body?.refreshToken });
@@ -389,10 +302,10 @@ async function handleClaimVerification(req, res) {
 
 // `/grade` remains temporarily for existing clients. New portal code uses the
 // orchestration endpoint explicitly named for an employer claim.
-app.post('/api/verify/claim', requireAuth, requireRole(['admin', 'verifier', 'auditor']), handleClaimVerification);
-app.post('/api/verify/grade', requireAuth, requireRole(['admin', 'verifier', 'auditor']), handleClaimVerification);
+app.post('/api/verify/claim', requireAuth, requireRole(['admin', 'verifier', 'auditor', 'institution']), handleClaimVerification);
+app.post('/api/verify/grade', requireAuth, requireRole(['admin', 'verifier', 'auditor', 'institution']), handleClaimVerification);
 
-app.post('/api/verify/transcript', requireAuth, requireRole(['admin', 'verifier', 'auditor']), async (req, res) => {
+app.post('/api/verify/transcript', requireAuth, requireRole(['admin', 'verifier', 'auditor', 'institution']), async (req, res) => {
   try {
     const result = await verificationService.verifyTranscriptRequest({ candidateId: req.body?.candidateId, sessionToken: req.authToken });
     return res.status(200).json({ success: true, valid: result.result === 'VALID', result: result.result === 'VALID' ? 'VALID' : 'INVALID' });

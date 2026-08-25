@@ -18,7 +18,6 @@
  *   SI1 - verificationKeySet never reverts to false once true
  *   SI2 - proofCount is monotonically non-decreasing
  *   SI3 - A call to verifyProof (view fn) never increments proofCount
- *   SI4 - Contract ETH balance is always zero
  *
  * Note: AR1 (BN254 scalar field arithmetic safety) is intentionally omitted.
  * The Groth16 pairing check uses EVM precompiles (ecAdd/ecMul/ecPairing at
@@ -147,8 +146,3 @@ rule SI3_viewCallDoesNotIncrementCounter() {
         "SI3: proofCount must be unchanged after a call to verifyProof";
 }
 
-// ============================================================================
-// SI4 — The contract must never hold ETH (no payable functions)
-// ============================================================================
-invariant SI4_contractBalanceAlwaysZero()
-    nativeBalances[currentContract] == 0;

@@ -9,11 +9,22 @@ function normalizeInstitutionId(value) {
   return normalizeText(value).toUpperCase();
 }
 
+const FIELD_MODULUS = BigInt('21888242871839275222246405745257275088548364400416034343698204186575808495617');
+
 function normalizeCommitment(value) {
-  return normalizeText(value).toLowerCase().replace(/^0x/, '');
+  const normalized = normalizeText(value);
+  if (!/^\d+$/.test(normalized)) return '';
+  try {
+    const fieldValue = BigInt(normalized);
+    return fieldValue > 0n && fieldValue < FIELD_MODULUS ? fieldValue.toString() : '';
+  } catch (_error) {
+    return '';
+  }
 }
 
-const STORE_PATH = path.resolve(__dirname, '..', 'data', 'institutions.json');
+const STORE_PATH = process.env.INSTITUTION_STORE_PATH
+  ? path.resolve(process.env.INSTITUTION_STORE_PATH)
+  : path.resolve(__dirname, '..', 'data', 'institutions.json');
 let institutions = [];
 
 function ensureStoreDir() {
@@ -55,7 +66,7 @@ function loadStore() {
         label: normalizeText(entry.label || 'External Institution'),
         commitment: normalizeCommitment(entry.commitment),
       }))
-      .filter((entry) => entry.id && entry.name && /^[a-f0-9]{64}$/i.test(entry.commitment));
+      .filter((entry) => entry.id && entry.name && entry.commitment);
   } catch (_error) {
     institutions = [];
   }
@@ -98,11 +109,11 @@ function registerInstitution({ id, name, label, commitment }) {
   const normalizedLabel = normalizeText(label || 'External Institution');
   const normalizedCommitment = normalizeCommitment(commitment);
 
-  if (!normalizedId || !normalizedName || !/^[a-f0-9]{64}$/i.test(normalizedCommitment)) {
+  if (!normalizedId || !normalizedName || !normalizedCommitment) {
     return {
       success: false,
       status: 400,
-      error: 'Institution id, name and a 64-hex-character commitment are required',
+      error: 'Institution id, name and a valid BN254 field commitment are required',
     };
   }
 

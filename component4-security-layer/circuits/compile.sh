@@ -6,7 +6,7 @@ BUILD_DIR="../build/circuits"
 PTAU_FILE="../build/pot12_final.ptau"
 PTAU_DOWNLOAD="https://hermez.s3-eu-west-1.amazonaws.com/powersOfTau28_hez_final_12.ptau"
 
-circuits=(gradeVerifier loginVerifier)
+circuits=(gradeVerifier loginVerifier claimBoundVerifier)
 
 mkdir -p "$BUILD_DIR"
 

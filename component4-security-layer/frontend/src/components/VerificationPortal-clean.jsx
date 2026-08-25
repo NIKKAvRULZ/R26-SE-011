@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import './VerificationPortal.css';
+import { deriveInstitutionCommitment, generateLoginProof } from '../lib/zkp-clean';
 
 let activeSessionToken = null;
 let activeRefreshToken = null;
@@ -139,6 +140,9 @@ function LoginView({ onAuthenticated }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [companies, setCompanies] = useState([]);
+  const [institutions, setInstitutions] = useState([]);
+  const [institutionId, setInstitutionId] = useState('');
+  const [institutionSecret, setInstitutionSecret] = useState('');
   const [signupForm, setSignupForm] = useState({
     companyId: '',
     companyName: '',
@@ -159,9 +163,13 @@ function LoginView({ onAuthenticated }) {
 
     async function loadCompanies() {
       try {
-        const payload = await requestJson('/api/auth/companies');
+        const [payload, institutionPayload] = await Promise.all([
+          requestJson('/api/auth/companies'),
+          requestJson('/api/auth/institutions'),
+        ]);
         if (mounted) {
           setCompanies(Array.isArray(payload.companies) ? payload.companies : []);
+          setInstitutions(Array.isArray(institutionPayload.institutions) ? institutionPayload.institutions : []);
         }
       } catch (_error) {
         if (mounted) {
@@ -182,6 +190,10 @@ function LoginView({ onAuthenticated }) {
       setCompanyId(companies[0].id);
     }
   }, [companies, companyId]);
+
+  useEffect(() => {
+    if (!institutionId && institutions.length > 0) setInstitutionId(institutions[0].id);
+  }, [institutions, institutionId]);
 
   async function handleAuthenticate(event) {
     event.preventDefault();
@@ -208,6 +220,18 @@ function LoginView({ onAuthenticated }) {
           token: authPayload.token,
           refreshToken: authPayload.refreshToken,
         });
+      } else if (authMode === 'institution-zkp') {
+        const institution = institutions.find((entry) => entry.id === institutionId);
+        if (!institution) throw new Error('Select a registered institution');
+        const generated = await generateLoginProof(institutionSecret);
+        const authPayload = await requestJson('/api/auth/zkp', {
+          method: 'POST',
+          body: JSON.stringify({ institutionId, ...generated }),
+        });
+        activeSessionToken = authPayload.token;
+        activeRefreshToken = null;
+        setInstitutionSecret('');
+        onAuthenticated({ session: authPayload.session, token: authPayload.token });
       } else {
         const signupPayload = await requestJson('/api/auth/signup', {
           method: 'POST',
@@ -231,7 +255,8 @@ function LoginView({ onAuthenticated }) {
   const noCompaniesAvailable = authMode === 'company-login' && companies.length === 0;
   const submitDisabled =
     loading ||
-    (authMode === 'company-login' && (noCompaniesAvailable || !companyId || !email || !password));
+    (authMode === 'company-login' && (noCompaniesAvailable || !companyId || !email || !password)) ||
+    (authMode === 'institution-zkp' && (!institutionId || !institutionSecret));
 
   async function requestPasswordResetAction() {
     setLoading(true);
@@ -308,11 +333,25 @@ function LoginView({ onAuthenticated }) {
             <strong>
               {authMode === 'company-login'
                 ? 'Company User Login'
-                : 'Company Admin Sign Up'}
+                : authMode === 'institution-zkp'
+                  ? 'Institution ZKP Login'
+                  : 'Company Admin Sign Up'}
             </strong>
           </div>
 
           <div className="mode-toggle-group auth-mode-toggle">
+            <button
+              type="button"
+              className={authMode === 'institution-zkp' ? 'mode-toggle active' : 'mode-toggle'}
+              onClick={() => {
+                setAuthMode('institution-zkp');
+                setError('');
+                setSuccessMessage('');
+                setRecoveryExpanded(false);
+              }}
+            >
+              Institution ZKP
+            </button>
             <button
               type="button"
               className={authMode === 'company-login' ? 'mode-toggle active' : 'mode-toggle'}
@@ -428,6 +467,32 @@ function LoginView({ onAuthenticated }) {
               </>
             ) : null}
 
+            {authMode === 'institution-zkp' ? (
+              <>
+                <label>
+                  Institution
+                  <select value={institutionId} onChange={(event) => setInstitutionId(event.target.value)} disabled={institutions.length === 0}>
+                    {institutions.map((institution) => (
+                      <option key={institution.id} value={institution.id}>
+                        {institution.id} - {institution.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {institutions.length === 0 ? <div className="portal-error">No ZKP institutions are registered.</div> : null}
+                <label>
+                  Private Institution Secret
+                  <input
+                    type="password"
+                    value={institutionSecret}
+                    onChange={(event) => setInstitutionSecret(event.target.value)}
+                    autoComplete="off"
+                    placeholder="Enter the private proof secret"
+                  />
+                </label>
+              </>
+            ) : null}
+
             {error ? <div className="portal-error">{error}</div> : null}
             {successMessage ? <div className="portal-success">{successMessage}</div> : null}
 
@@ -435,15 +500,19 @@ function LoginView({ onAuthenticated }) {
               {loading
                 ? authMode === 'signup'
                   ? 'Creating Company...'
-                  : 'Signing In...'
+                  : authMode === 'institution-zkp'
+                    ? 'Generating Proof...'
+                    : 'Signing In...'
                 : authMode === 'signup'
                   ? 'Create Company Admin Account'
-                  : 'Sign In to Verification Workspace'}
+                  : authMode === 'institution-zkp'
+                    ? 'Generate Proof and Sign In'
+                    : 'Sign In to Verification Workspace'}
             </button>
           </form>
 
           <p className="privacy-note">
-            Only registered company users can access transcript and grade verification APIs.
+            Registered company users and ZKP-authenticated institutions can access verification APIs.
           </p>
 
           {authMode === 'company-login' ? (
@@ -529,6 +598,7 @@ function AuthenticatedView({ account, session, onLogout }) {
   const [loadingTranscript, setLoadingTranscript] = useState(false);
   const [adminUsers, setAdminUsers] = useState([]);
   const [adminAuditEvents, setAdminAuditEvents] = useState([]);
+  const [adminInstitutions, setAdminInstitutions] = useState([]);
   const [passwordPolicy, setPasswordPolicy] = useState(null);
   const [adminLoading, setAdminLoading] = useState(false);
   const [adminSaving, setAdminSaving] = useState(false);
@@ -539,6 +609,7 @@ function AuthenticatedView({ account, session, onLogout }) {
     password: '',
   });
   const [adminEdits, setAdminEdits] = useState({});
+  const [institutionForm, setInstitutionForm] = useState({ id: '', name: '', label: 'External Institution', secret: '' });
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -553,9 +624,10 @@ function AuthenticatedView({ account, session, onLogout }) {
       setError('');
 
       try {
-        const [usersPayload, auditPayload] = await Promise.all([
+        const [usersPayload, auditPayload, institutionPayload] = await Promise.all([
           requestJson('/api/admin/users'),
           requestJson('/api/admin/audit?limit=40'),
+          requestJson('/api/auth/institutions'),
         ]);
 
         if (!mounted) {
@@ -565,6 +637,7 @@ function AuthenticatedView({ account, session, onLogout }) {
         setAdminUsers(Array.isArray(usersPayload.users) ? usersPayload.users : []);
         setPasswordPolicy(usersPayload.passwordPolicy || null);
         setAdminAuditEvents(Array.isArray(auditPayload.events) ? auditPayload.events : []);
+        setAdminInstitutions(Array.isArray(institutionPayload.institutions) ? institutionPayload.institutions : []);
       } catch (requestError) {
         if (mounted) {
           setError(requestError.message || 'Failed to load admin data');
@@ -698,6 +771,30 @@ function AuthenticatedView({ account, session, onLogout }) {
     }
   }
 
+  async function createInstitution() {
+    setAdminSaving(true);
+    setError('');
+    try {
+      const commitment = await deriveInstitutionCommitment(institutionForm.secret);
+      await requestJson('/api/admin/institutions', {
+        method: 'POST',
+        body: JSON.stringify({
+          id: institutionForm.id,
+          name: institutionForm.name,
+          label: institutionForm.label,
+          commitment,
+        }),
+      });
+      setInstitutionForm({ id: '', name: '', label: 'External Institution', secret: '' });
+      const payload = await requestJson('/api/auth/institutions');
+      setAdminInstitutions(Array.isArray(payload.institutions) ? payload.institutions : []);
+    } catch (requestError) {
+      setError(requestError.message || 'Failed to register institution');
+    } finally {
+      setAdminSaving(false);
+    }
+  }
+
   const displayedResult = portalMode === 'transcript' ? transcriptResult : verificationResult;
 
   return (
@@ -724,7 +821,7 @@ function AuthenticatedView({ account, session, onLogout }) {
       <div className="dashboard-strip">
         <div className="dashboard-stat-card">
           <span>Authentication State</span>
-          <strong>Company Session Active</strong>
+          <strong>{session?.authType === 'zkp-institution' ? 'Institution ZKP Session Active' : 'Company Session Active'}</strong>
         </div>
         <div className="dashboard-stat-card">
           <span>Verification Channels</span>
@@ -823,6 +920,30 @@ function AuthenticatedView({ account, session, onLogout }) {
               <div className="button-row">
                 <button type="button" className="primary-button" onClick={createVerifierUser} disabled={adminSaving}>
                   {adminSaving ? 'Saving...' : 'Create User'}
+                </button>
+              </div>
+
+              <h3>Institution ZKP Access</h3>
+              <p className="card-intro">Register a public proof commitment. The private secret is transformed in this browser and is never submitted.</p>
+              <label>
+                Institution ID
+                <input value={institutionForm.id} onChange={(event) => setInstitutionForm((previous) => ({ ...previous, id: event.target.value }))} placeholder="SLIIT" />
+              </label>
+              <label>
+                Institution Name
+                <input value={institutionForm.name} onChange={(event) => setInstitutionForm((previous) => ({ ...previous, name: event.target.value }))} placeholder="Sri Lanka Institute of Information Technology" />
+              </label>
+              <label>
+                Access Label
+                <input value={institutionForm.label} onChange={(event) => setInstitutionForm((previous) => ({ ...previous, label: event.target.value }))} />
+              </label>
+              <label>
+                Private Institution Secret
+                <input type="password" autoComplete="new-password" value={institutionForm.secret} onChange={(event) => setInstitutionForm((previous) => ({ ...previous, secret: event.target.value }))} />
+              </label>
+              <div className="button-row">
+                <button type="button" className="primary-button" onClick={createInstitution} disabled={adminSaving || !institutionForm.id.trim() || !institutionForm.name.trim() || !institutionForm.secret}>
+                  Register ZKP Institution
                 </button>
               </div>
             </>
@@ -949,6 +1070,7 @@ function AuthenticatedView({ account, session, onLogout }) {
               </div>
 
               <h3>Recent Audit Events</h3>
+              <p className="muted-copy">{adminInstitutions.length} ZKP institution(s) registered</p>
               <div className="table-wrapper">
                 <table>
                   <thead>
@@ -978,7 +1100,7 @@ function AuthenticatedView({ account, session, onLogout }) {
                 <div className={`verification-result ${displayedResult.valid ? 'is-valid' : 'is-invalid'}`}>
                   <div className="result-banner">
                     <p className={displayedResult.valid ? 'success-text' : 'error-text'}>
-                      {verificationResult.valid ? '✓ ACADEMIC RESULT VERIFIED' : '✕ ACADEMIC RESULT VERIFICATION FAILED'}
+                      {displayedResult.valid ? '✓ ACADEMIC RESULT VERIFIED' : '✕ ACADEMIC RESULT VERIFICATION FAILED'}
                     </p>
                     <p className="status-caption">No student record, grade, marks, transcript, CID, or Merkle root is disclosed.</p>
                   </div>

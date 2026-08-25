@@ -2,7 +2,7 @@ import { buildPoseidon } from 'circomlibjs';
 import { groth16 } from 'snarkjs';
 
 const FIELD_MODULUS = BigInt('21888242871839275222246405745257275088548364400416034343698204186575808495617');
-const BACKEND_ORIGIN = import.meta.env.VITE_BACKEND_ORIGIN || 'http://localhost:3000';
+const BACKEND_ORIGIN = import.meta.env.VITE_BACKEND_ORIGIN || 'http://localhost:3001';
 const LOGIN_WASM = `${BACKEND_ORIGIN}/build/loginVerifier_js/loginVerifier.wasm`;
 const LOGIN_ZKEY = `${BACKEND_ORIGIN}/build/loginVerifier_final.zkey`;
 

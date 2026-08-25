@@ -65,7 +65,7 @@ And supports:
 
 ### Full Transcript Verification
 
-The transcript workflow retrieves the finalized academic dataset and displays the candidate’s record history after authentication. It also calculates off-chain GPA from the verified transcript data.
+The transcript workflow resolves Component 1's latest blockchain anchor, retrieves the matching IPFS dataset, and verifies every finalized candidate leaf. The employer receives only `VALID` or `INVALID`; transcript records and grades are not disclosed.
 
 ### Single Grade Verification
 
@@ -80,7 +80,7 @@ The grade verification workflow checks:
 
 ### Formal Verification Support
 
-The Solidity verifier and Certora configuration remain part of the component to validate contract behavior and security properties.
+The Solidity layer wraps a `snarkjs`-generated Groth16 verifier with owner-only pause controls and successful-proof accounting. Certora CVL properties cover access control and state invariants.
 
 ## Prerequisites
 
@@ -169,6 +169,7 @@ Admin users can open **Admin Console** mode and:
 - change user roles
 - rotate user passwords
 - view company-scoped audit events
+- register institution ZKP commitments without sending the institution secret to the backend
 
 ### 7. Institution ZKP login mode
 
@@ -182,8 +183,9 @@ Use **Institution ZKP Login** when you want authentication via proof rather than
 ### 8. Run tests
 
 ```bash
-cd ../test
-node component4-verification.test.js
+npm test
+npm run test:contract
+npm run panel:smoke
 ```
 
 ### 9. Run Certora formal verification
@@ -196,6 +198,7 @@ bash formal-verification/run-verification.sh
 ## Runtime Notes
 
 - The backend expects the official anchored dataset to be available at the live Merkle-root/IPFS endpoint.
+- `ACADEMIC_DATA_BASE_URL` is mandatory. Component 4 has no academic-record fallback or mock proof API.
 - Merkle roots are normalized before comparison using `root.toLowerCase().replace(/^0x/, '')`.
 - Grade verification uses the bridge endpoint `POST /proof/merkle-proof` and validates the returned official hash + Merkle path.
 - Role-based account sessions are required for transcript and grade verification endpoints.
@@ -204,10 +207,13 @@ bash formal-verification/run-verification.sh
 ## API Endpoints Used By Component 4
 
 - `GET /proof/{MERKLE_ROOT}`: anchored blockchain proof metadata (`merkleRoot`, `ipfsCID`, `timestamp`, `uploadedBy`).
+- `GET /proof/latest`: latest Component 1 blockchain anchor used for transcript verification.
 - `GET /proof/{MERKLE_ROOT}/data`: finalized dataset records for the root.
 - `POST /proof/merkle-proof`: official record hash + leaf index + Merkle proof for one candidate/module.
 - `GET /api/auth/companies`: available company list for verifier login.
 - `POST /api/auth/login`: company verifier login (`companyId`, `email`, `password`).
+- `GET /api/auth/institutions`: registered public institution commitments.
+- `POST /api/auth/zkp`: Groth16 institution authentication.
 - `POST /api/auth/signup`: public company onboarding (`companyId`, `companyName`, `adminName`, `adminEmail`, `adminPassword`).
 - `GET /api/auth/me`: current authenticated session profile.
 - `GET /api/admin/users`: admin-only list users in admin's company and current password policy.
