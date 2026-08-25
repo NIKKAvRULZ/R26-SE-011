@@ -85,7 +85,7 @@ app.use(
 // =====================================================
 
 const PORT =
-    process.env.PORT || 3000;
+    process.env.PORT || 5002;
 
 
 async function startServer() {
