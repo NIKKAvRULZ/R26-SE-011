@@ -13,6 +13,7 @@
     "verify": "node scripts/verifyProof.js",
     "demo": "node scripts/generateProof.js && node scripts/verifyProof.js",
     "panel:smoke": "node scripts/panel-smoke-test.js",
+    "migrate:mongo": "node scripts/migrate-local-mongo-to-atlas.js",
     "start:demo": "powershell -ExecutionPolicy Bypass -File scripts/start-local-stack.ps1",
     "deploy": "npx hardhat run scripts/deploy-verifier.js --network localhost",
     "test": "node --test test/claim-workflow.test.js test/zkp-login.test.js",

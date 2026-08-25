@@ -8,6 +8,7 @@ const crypto = require('node:crypto');
  * has resolved and verified the anchored academic record.
  */
 let mongoose;
+const { prepareMongoConnection } = require('./mongo-connection');
 
 function loadMongoose() {
   if (!mongoose) {
@@ -31,9 +32,10 @@ async function connectMongo() {
 
   const db = loadMongoose();
   if (!connectionPromise) {
-    connectionPromise = db.connect(uri, {
+    connectionPromise = prepareMongoConnection(uri).then((connection) => db.connect(connection.uri, {
       serverSelectionTimeoutMS: Number(process.env.MONGODB_SERVER_SELECTION_TIMEOUT_MS || 5000),
-    });
+      ...connection.options,
+    }));
   }
   await connectionPromise;
 

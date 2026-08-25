@@ -28,7 +28,7 @@ function Test-Port([int]$Port) {
 
 Write-Host 'Starting Component 1 API...'
 if (-not (Test-Port 5002)) { Start-HiddenNode $Component1Path 'npm.cmd start' }
-Wait-Http 'http://localhost:5002/proof/record/TEST003/SE3040'
+Wait-Http 'http://localhost:5002/proof/latest'
 
 Write-Host 'Starting local blockchain...'
 if (-not (Test-Port 8545)) { Start-HiddenNode $Component1Path 'npx.cmd hardhat node' }
@@ -38,9 +38,9 @@ Write-Host 'Deploying Component 1 ProofStorage contract...'
 Push-Location $Component1Path
 $codeCheck = node -e "const {ethers}=require('ethers');(async()=>{console.log((await new ethers.JsonRpcProvider('http://127.0.0.1:8545').getCode('0x5FbDB2315678afecb367f032d93F642f64180aa3')).length>2?'yes':'no')})()"
 if ($codeCheck.Trim() -ne 'yes') { npx.cmd hardhat ignition deploy ignition/modules/ProofStorage.js --network localhost | Out-Host }
-$lookup = Invoke-RestMethod 'http://localhost:5002/proof/record/TEST003/SE3040'
-$root = $lookup.record.merkleRoot
-$cid = $lookup.record.ipfsCID
+$latest = Invoke-RestMethod 'http://localhost:5002/proof/latest'
+$root = $latest.proof.merkleRoot
+$cid = $latest.proof.ipfsCID
 $anchorCode = "const {ethers}=require('ethers'); const abi=require('./controllers/ProofStorage.json').abi; (async()=>{const p=new ethers.JsonRpcProvider('http://127.0.0.1:8545'); const c=new ethers.Contract('0x5FbDB2315678afecb367f032d93F642f64180aa3',abi,await p.getSigner(0)); try { const old=await c.getProof('$root'); console.log('Already anchored',old[0]); } catch (_) { const tx=await c.storeProof('$root','$cid'); await tx.wait(); console.log('Anchored',tx.hash); }})().catch(e=>{console.error(e);process.exit(1)})"
 node -e $anchorCode | Out-Host
 Pop-Location

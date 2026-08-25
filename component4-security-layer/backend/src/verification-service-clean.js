@@ -489,7 +489,26 @@ function createVerificationService(options = {}) {
     const candidate = canonicalizeIdentifier(candidateId);
     const module = canonicalizeIdentifier(moduleCode);
     const query = version == null || version === '' ? '' : `?version=${encodeURIComponent(version)}`;
-    const payload = await fetchJson(`${dataBaseUrl}/record/${encodeURIComponent(candidate)}/${encodeURIComponent(module)}${query}`);
+    let payload;
+    try {
+      payload = await fetchJson(`${dataBaseUrl}/record/${encodeURIComponent(candidate)}/${encodeURIComponent(module)}${query}`);
+    } catch (error) {
+      if (error.status !== 404) throw error;
+
+      // A blockchain anchor can remain valid even when Component 1's optional
+      // MongoDB proof index has been rebuilt. Resolve the reference from the
+      // same official latest anchor and finalized IPFS dataset in that case.
+      const source = await readVerificationSource();
+      const dataset = await fetchFinalizedDataset(source.merkleRoot);
+      const records = dataset?.data?.recordsWithHashes || dataset?.data?.records || [];
+      const record = records.find((entry) =>
+        canonicalizeIdentifier(entry.candidateId) === candidate &&
+        canonicalizeIdentifier(entry.moduleCode) === module &&
+        (version == null || version === '' || String(entry.version) === String(version))
+      );
+      if (!record) throw error;
+      return { candidateId: candidate, moduleCode: module, version: record.version, merkleRoot: source.merkleRoot, ipfsCID: source.ipfsCID };
+    }
     // Component 1 may return the reference in `record` or at the top level.
     const record = payload?.record || payload;
     const merkleRoot = normalizeMerkleRoot(record?.merkleRoot);
