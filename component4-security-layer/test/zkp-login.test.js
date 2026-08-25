@@ -1,22 +1,31 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
-const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
 const snarkjs = require('snarkjs');
 const { buildPoseidon } = require('circomlibjs');
 
-const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'component4-zkp-login-'));
-process.env.INSTITUTION_STORE_PATH = path.join(tempDir, 'institutions.json');
 process.env.ACADEMIC_DATA_BASE_URL ||= 'http://component1.invalid/proof';
 
 const { createVerificationService } = require('../backend/src/verification-service-clean');
+const institutions = require('../backend/src/institutions-clean');
 const FIELD_MODULUS = BigInt('21888242871839275222246405745257275088548364400416034343698204186575808495617');
 const wasmPath = path.resolve(__dirname, '..', 'build', 'loginVerifier_js', 'loginVerifier.wasm');
 const zkeyPath = path.resolve(__dirname, '..', 'build', 'loginVerifier_final.zkey');
 
 test('registered institution authenticates with a Groth16 proof and a tampered proof fails', async () => {
+  const records = [];
+  const query = (value) => ({ lean: async () => value, sort() { return this; } });
+  institutions.setInstitutionModelForTests({
+    findOne: (filter) => query(records.find((item) => item.institutionId === filter.institutionId && item.status === filter.status) || null),
+    find: (filter) => query(records.filter((item) => item.status === filter.status)),
+    exists: async ({ $or }) => records.some((item) => $or.some((condition) => Object.entries(condition).every(([key, value]) => item[key] === value))),
+    create: async (value) => {
+      const record = { ...value, status: 'active' };
+      records.push(record);
+      return { ...record, toObject: () => record };
+    },
+  });
   const secret = 'institution-test-secret-2026';
   const toField = (value) => BigInt(`0x${crypto.createHash('sha256').update(value.trim()).digest('hex')}`) % FIELD_MODULUS;
   const poseidon = await buildPoseidon();
@@ -25,7 +34,7 @@ test('registered institution authenticates with a Groth16 proof and a tampered p
   const service = createVerificationService();
 
   const registration = service.registerAdminInstitution
-    ? require('../backend/src/institutions-clean').registerInstitution({ id: 'TEST-ZKP', name: 'Test Institution', commitment })
+    ? await institutions.registerInstitution({ id: 'TEST-ZKP', name: 'Test Institution', commitment })
     : null;
   assert.equal(registration.success, true);
 
@@ -53,5 +62,4 @@ test('registered institution authenticates with a Groth16 proof and a tampered p
 test.after(async () => {
   await globalThis.curve_bn128?.terminate();
   await globalThis.curve_bls12381?.terminate();
-  fs.rmSync(tempDir, { recursive: true, force: true });
 });

@@ -1,15 +1,10 @@
-const fs = require('node:fs');
-const path = require('node:path');
-
-function normalizeText(value) {
-  return String(value ?? '').trim();
-}
-
-function normalizeInstitutionId(value) {
-  return normalizeText(value).toUpperCase();
-}
+const mongoose = require('mongoose');
 
 const FIELD_MODULUS = BigInt('21888242871839275222246405745257275088548364400416034343698204186575808495617');
+let modelOverride = null;
+
+function normalizeText(value) { return String(value ?? '').trim(); }
+function normalizeInstitutionId(value) { return normalizeText(value).toUpperCase(); }
 
 function normalizeCommitment(value) {
   const normalized = normalizeText(value);
@@ -17,133 +12,62 @@ function normalizeCommitment(value) {
   try {
     const fieldValue = BigInt(normalized);
     return fieldValue > 0n && fieldValue < FIELD_MODULUS ? fieldValue.toString() : '';
-  } catch (_error) {
-    return '';
-  }
+  } catch (_error) { return ''; }
 }
 
-const STORE_PATH = process.env.INSTITUTION_STORE_PATH
-  ? path.resolve(process.env.INSTITUTION_STORE_PATH)
-  : path.resolve(__dirname, '..', 'data', 'institutions.json');
-let institutions = [];
-
-function ensureStoreDir() {
-  fs.mkdirSync(path.dirname(STORE_PATH), { recursive: true });
-}
-
-function persistStore() {
-  ensureStoreDir();
-  fs.writeFileSync(
-    STORE_PATH,
-    JSON.stringify(
-      {
-        version: 1,
-        updatedAt: new Date().toISOString(),
-        institutions,
-      },
-      null,
-      2,
-    ),
-    'utf8',
+function getInstitutionModel() {
+  if (modelOverride) return modelOverride;
+  if (mongoose.connection.readyState !== 1) throw new Error('MongoDB is not connected');
+  return mongoose.models.Component4Institution || mongoose.model(
+    'Component4Institution',
+    new mongoose.Schema({
+      institutionId: { type: String, unique: true, required: true },
+      name: { type: String, required: true },
+      label: { type: String, default: 'External Institution' },
+      commitment: { type: String, unique: true, required: true },
+      status: { type: String, enum: ['active', 'inactive'], default: 'active' },
+    }, { timestamps: true, versionKey: false }),
   );
 }
 
-function loadStore() {
-  if (!fs.existsSync(STORE_PATH)) {
-    institutions = [];
-    return;
-  }
-
-  try {
-    const raw = fs.readFileSync(STORE_PATH, 'utf8');
-    const parsed = JSON.parse(raw);
-    const entries = Array.isArray(parsed.institutions) ? parsed.institutions : [];
-
-    institutions = entries
-      .map((entry) => ({
-        id: normalizeInstitutionId(entry.id),
-        name: normalizeText(entry.name),
-        label: normalizeText(entry.label || 'External Institution'),
-        commitment: normalizeCommitment(entry.commitment),
-      }))
-      .filter((entry) => entry.id && entry.name && entry.commitment);
-  } catch (_error) {
-    institutions = [];
-  }
+function publicInstitution(institution) {
+  if (!institution) return null;
+  const value = institution.toObject ? institution.toObject() : institution;
+  return { id: value.institutionId, institutionId: value.institutionId, name: value.name, institutionName: value.name, label: value.label, commitment: value.commitment };
 }
 
-loadStore();
-
 async function resolveInstitution(institutionId) {
-  const normalizedId = normalizeInstitutionId(institutionId);
-  const institution = institutions.find((entry) => entry.id === normalizedId);
-
-  if (!institution) {
-    return null;
-  }
-
-  return {
-    id: institution.id,
-    institutionId: institution.id,
-    name: institution.name,
-    institutionName: institution.name,
-    label: institution.label,
-    commitment: institution.commitment,
-  };
+  const institution = await getInstitutionModel().findOne({ institutionId: normalizeInstitutionId(institutionId), status: 'active' }).lean();
+  return publicInstitution(institution);
 }
 
 async function listInstitutions() {
-  return institutions.map((institution) => ({
-    id: institution.id,
-    institutionId: institution.id,
-    name: institution.name,
-    institutionName: institution.name,
-    label: institution.label,
-    commitment: institution.commitment,
-  }));
+  const institutions = await getInstitutionModel().find({ status: 'active' }).sort({ name: 1 }).lean();
+  return institutions.map(publicInstitution);
 }
 
-function registerInstitution({ id, name, label, commitment }) {
-  const normalizedId = normalizeInstitutionId(id);
+async function registerInstitution({ id, name, label, commitment }) {
+  const institutionId = normalizeInstitutionId(id);
   const normalizedName = normalizeText(name);
   const normalizedLabel = normalizeText(label || 'External Institution');
   const normalizedCommitment = normalizeCommitment(commitment);
-
-  if (!normalizedId || !normalizedName || !normalizedCommitment) {
-    return {
-      success: false,
-      status: 400,
-      error: 'Institution id, name and a valid BN254 field commitment are required',
-    };
+  if (!institutionId || !normalizedName || !normalizedCommitment) {
+    return { success: false, status: 400, error: 'Institution id, name and a valid BN254 field commitment are required' };
   }
 
-  const existingById = institutions.find((entry) => entry.id === normalizedId);
-  if (existingById) {
-    return { success: false, status: 409, error: 'Institution already exists' };
+  const Institution = getInstitutionModel();
+  if (await Institution.exists({ $or: [{ institutionId }, { commitment: normalizedCommitment }] })) {
+    return { success: false, status: 409, error: 'Institution or commitment already exists' };
   }
-
-  institutions.push({
-    id: normalizedId,
-    name: normalizedName,
-    label: normalizedLabel,
-    commitment: normalizedCommitment,
-  });
-  persistStore();
-
-  return {
-    success: true,
-    status: 201,
-    institution: {
-      id: normalizedId,
-      name: normalizedName,
-      label: normalizedLabel,
-      commitment: normalizedCommitment,
-    },
-  };
+  try {
+    const institution = await Institution.create({ institutionId, name: normalizedName, label: normalizedLabel, commitment: normalizedCommitment });
+    return { success: true, status: 201, institution: publicInstitution(institution) };
+  } catch (error) {
+    if (error?.code === 11000) return { success: false, status: 409, error: 'Institution or commitment already exists' };
+    throw error;
+  }
 }
 
-module.exports = {
-  listInstitutions,
-  registerInstitution,
-  resolveInstitution,
-};
+function setInstitutionModelForTests(model) { modelOverride = model; }
+
+module.exports = { listInstitutions, registerInstitution, resolveInstitution, setInstitutionModelForTests };

@@ -162,20 +162,16 @@ function LoginView({ onAuthenticated }) {
     let mounted = true;
 
     async function loadCompanies() {
-      try {
-        const [payload, institutionPayload] = await Promise.all([
-          requestJson('/api/auth/companies'),
-          requestJson('/api/auth/institutions'),
-        ]);
-        if (mounted) {
-          setCompanies(Array.isArray(payload.companies) ? payload.companies : []);
-          setInstitutions(Array.isArray(institutionPayload.institutions) ? institutionPayload.institutions : []);
-        }
-      } catch (_error) {
-        if (mounted) {
-          setCompanies([]);
-        }
-      }
+      const [companyResult, institutionResult] = await Promise.allSettled([
+        requestJson('/api/auth/companies'),
+        requestJson('/api/auth/institutions'),
+      ]);
+      if (!mounted) return;
+
+      const companyPayload = companyResult.status === 'fulfilled' ? companyResult.value : null;
+      const institutionPayload = institutionResult.status === 'fulfilled' ? institutionResult.value : null;
+      setCompanies(Array.isArray(companyPayload?.companies) ? companyPayload.companies : []);
+      setInstitutions(Array.isArray(institutionPayload?.institutions) ? institutionPayload.institutions : []);
     }
 
     loadCompanies();
