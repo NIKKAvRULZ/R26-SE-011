@@ -71,6 +71,13 @@ async function disconnectMongo() {
   connectionPromise = null;
 }
 
+async function pingMongo() {
+  if (!process.env.MONGODB_URI) return false;
+  await connectMongo();
+  await loadMongoose().connection.db.admin().ping();
+  return true;
+}
+
 async function recordVerificationAttempt({ session, candidateId, moduleCode, claimedGrade, result }) {
   const Model = await connectMongo();
   if (!Model) return false;
@@ -97,4 +104,4 @@ async function recordVerificationAttempt({ session, candidateId, moduleCode, cla
   return true;
 }
 
-module.exports = { connectMongo, disconnectMongo, recordVerificationAttempt };
+module.exports = { connectMongo, disconnectMongo, pingMongo, recordVerificationAttempt };

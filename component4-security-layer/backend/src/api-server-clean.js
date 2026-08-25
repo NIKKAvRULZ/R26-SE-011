@@ -4,7 +4,7 @@ const express = require('express');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
 const { createVerificationService } = require('./verification-service-clean');
-const { connectMongo } = require('./mongo-verification-store');
+const { connectMongo, pingMongo } = require('./mongo-verification-store');
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -251,6 +251,58 @@ app.post('/api/admin/institutions', requireAuth, requireRole(['admin']), async (
     commitment: req.body?.commitment,
   });
   return res.status(result.status || (result.success ? 201 : 400)).json(result);
+});
+
+app.post('/api/admin/evidence/run', requireAuth, requireRole(['admin']), async (req, res) => {
+  const candidateId = String(req.body?.candidateId || '').trim();
+  const moduleCode = String(req.body?.moduleCode || '').trim();
+  const claimedGrade = String(req.body?.claimedGrade || '').trim().toUpperCase();
+  if (!candidateId || !moduleCode || !claimedGrade) {
+    return res.status(400).json({ success: false, error: 'Candidate ID, module code, and claimed grade are required' });
+  }
+
+  try {
+    const alteredGrade = claimedGrade === 'F' ? 'A+' : 'F';
+    const validClaim = await verificationService.verifyGradeRequest({
+      candidateId,
+      moduleCode,
+      claimedGrade,
+      sessionToken: req.authToken,
+    });
+    const tamperedClaim = await verificationService.verifyGradeRequest({
+      candidateId,
+      moduleCode,
+      claimedGrade: alteredGrade,
+      sessionToken: req.authToken,
+    });
+    const transcript = await verificationService.verifyTranscriptRequest({ candidateId, sessionToken: req.authToken });
+
+    let mongoConnected = false;
+    try {
+      mongoConnected = await pingMongo();
+    } catch (_error) {
+      mongoConnected = false;
+    }
+
+    return res.json({
+      success: true,
+      runAt: new Date().toISOString(),
+      subject: { candidateId: candidateId.toUpperCase(), moduleCode: moduleCode.toUpperCase() },
+      validClaim: { result: validClaim.result, checks: validClaim.checks || {} },
+      tamperedClaim: { result: tamperedClaim.result, checks: tamperedClaim.checks || {} },
+      transcript: { result: transcript.result },
+      operational: {
+        component1: validClaim.checks?.recordFound === true,
+        mongodb: mongoConnected,
+      },
+      formalVerification: {
+        status: 'PUBLISHED',
+        reportUrl: process.env.CERTORA_REPORT_URL || 'https://prover.certora.com/output/3827879/adef4095c4994e9896e13a1b723f61e0',
+      },
+    });
+  } catch (_error) {
+    return res.status(503).json({ success: false, error: 'Unable to complete the live evidence run' });
+  }
 });
 
 app.post('/api/auth/zkp', async (req, res) => {

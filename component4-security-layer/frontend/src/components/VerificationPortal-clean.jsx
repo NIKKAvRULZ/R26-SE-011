@@ -581,6 +581,19 @@ function LoginView({ onAuthenticated }) {
   );
 }
 
+function formatEvidenceLabel(value) {
+  return String(value).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (letter) => letter.toUpperCase());
+}
+
+function EvidenceStatus({ label, passed, value }) {
+  return (
+    <div className={passed ? 'evidence-status is-pass' : 'evidence-status is-fail'}>
+      <span>{label}</span>
+      <strong>{value || 'UNKNOWN'}</strong>
+    </div>
+  );
+}
+
 function AuthenticatedView({ account, session, onLogout }) {
   const currentRole = (account?.user?.role || session?.role || 'verifier').toLowerCase();
   const isAdmin = currentRole === 'admin';
@@ -592,6 +605,8 @@ function AuthenticatedView({ account, session, onLogout }) {
   const [loadingVerification, setLoadingVerification] = useState(false);
   const [transcriptResult, setTranscriptResult] = useState(null);
   const [loadingTranscript, setLoadingTranscript] = useState(false);
+  const [evidenceResult, setEvidenceResult] = useState(null);
+  const [loadingEvidence, setLoadingEvidence] = useState(false);
   const [adminUsers, setAdminUsers] = useState([]);
   const [adminAuditEvents, setAdminAuditEvents] = useState([]);
   const [adminInstitutions, setAdminInstitutions] = useState([]);
@@ -695,6 +710,23 @@ function AuthenticatedView({ account, session, onLogout }) {
       setTranscriptResult(null);
     } finally {
       setLoadingTranscript(false);
+    }
+  }
+
+  async function runEvidenceConsole() {
+    setLoadingEvidence(true);
+    setError('');
+    setEvidenceResult(null);
+    try {
+      const payload = await requestJson('/api/admin/evidence/run', {
+        method: 'POST',
+        body: JSON.stringify({ candidateId, moduleCode, claimedGrade }),
+      });
+      setEvidenceResult(payload);
+    } catch (requestError) {
+      setError(requestError.message || 'Evidence run failed');
+    } finally {
+      setLoadingEvidence(false);
     }
   }
 
@@ -833,7 +865,7 @@ function AuthenticatedView({ account, session, onLogout }) {
         <div className="workspace-copy">
           <span>Verification Workspace</span>
           <strong>
-            {portalMode === 'grade' ? 'CV Claim Verification' : portalMode === 'transcript' ? 'Full Transcript Integrity Check' : 'Admin User Governance'}
+            {portalMode === 'grade' ? 'CV Claim Verification' : portalMode === 'transcript' ? 'Full Transcript Integrity Check' : portalMode === 'evidence' ? 'Live Verification Evidence' : 'Admin User Governance'}
           </strong>
         </div>
         <div className="mode-toggle-group">
@@ -851,6 +883,15 @@ function AuthenticatedView({ account, session, onLogout }) {
           >
             Full Transcript
           </button>
+          {isAdmin ? (
+            <button
+              type="button"
+              className={portalMode === 'evidence' ? 'mode-toggle active' : 'mode-toggle'}
+              onClick={() => setPortalMode('evidence')}
+            >
+              Evidence Console
+            </button>
+          ) : null}
           {isAdmin ? (
             <button
               type="button"
@@ -940,6 +981,32 @@ function AuthenticatedView({ account, session, onLogout }) {
               <div className="button-row">
                 <button type="button" className="primary-button" onClick={createInstitution} disabled={adminSaving || !institutionForm.id.trim() || !institutionForm.name.trim() || !institutionForm.secret}>
                   Register ZKP Institution
+                </button>
+              </div>
+            </>
+          ) : portalMode === 'evidence' && isAdmin ? (
+            <>
+              <h3>Live Evidence Run</h3>
+              <p className="card-intro">Run the complete Component 4 verification path against the current Component 1 anchor.</p>
+              <label>
+                Candidate ID
+                <input value={candidateId} onChange={(event) => setCandidateId(event.target.value)} />
+              </label>
+              <label>
+                Module Code
+                <input value={moduleCode} onChange={(event) => setModuleCode(event.target.value)} />
+              </label>
+              <label>
+                Official Claimed Grade
+                <input value={claimedGrade} onChange={(event) => setClaimedGrade(event.target.value)} />
+              </label>
+              <div className="input-helper-panel">
+                <span>Privacy Boundary</span>
+                <p>The evidence response contains decisions and check states only. Academic records, marks, roots, and CIDs are not returned.</p>
+              </div>
+              <div className="button-row">
+                <button type="button" className="primary-button" onClick={runEvidenceConsole} disabled={loadingEvidence || !candidateId.trim() || !moduleCode.trim() || !claimedGrade.trim()}>
+                  {loadingEvidence ? 'Running Evidence Checks...' : 'Run Live Evidence Check'}
                 </button>
               </div>
             </>
@@ -1088,6 +1155,43 @@ function AuthenticatedView({ account, session, onLogout }) {
                 </table>
               </div>
 
+            </>
+          ) : portalMode === 'evidence' && isAdmin ? (
+            <>
+              <h3>Evidence Summary</h3>
+              {evidenceResult ? (
+                <div className="evidence-console">
+                  <div className="evidence-headline">
+                    <div>
+                      <span>Live run</span>
+                      <strong>{evidenceResult.subject?.candidateId} / {evidenceResult.subject?.moduleCode}</strong>
+                    </div>
+                    <time>{new Date(evidenceResult.runAt).toLocaleString()}</time>
+                  </div>
+                  <div className="evidence-status-grid">
+                    <EvidenceStatus label="Official claim" passed={evidenceResult.validClaim?.result === 'VALID'} value={evidenceResult.validClaim?.result} />
+                    <EvidenceStatus label="Altered claim rejected" passed={evidenceResult.tamperedClaim?.result === 'INVALID'} value={evidenceResult.tamperedClaim?.result === 'INVALID' ? 'REJECTED' : 'FAILED'} />
+                    <EvidenceStatus label="Full transcript" passed={evidenceResult.transcript?.result === 'VALID'} value={evidenceResult.transcript?.result} />
+                    <EvidenceStatus label="MongoDB audit store" passed={evidenceResult.operational?.mongodb === true} value={evidenceResult.operational?.mongodb ? 'CONNECTED' : 'UNAVAILABLE'} />
+                  </div>
+                  <div className="evidence-check-list">
+                    {Object.entries(evidenceResult.validClaim?.checks || {}).map(([name, passed]) => (
+                      <div className="evidence-check" key={name}>
+                        <span>{formatEvidenceLabel(name)}</span>
+                        <strong className={passed ? 'success-text' : 'error-text'}>{passed ? 'PASS' : 'FAIL'}</strong>
+                      </div>
+                    ))}
+                  </div>
+                  <a className="formal-report-link" href={evidenceResult.formalVerification?.reportUrl} target="_blank" rel="noreferrer">
+                    Open Published Certora Report
+                  </a>
+                </div>
+              ) : (
+                <div className="empty-state-card">
+                  <strong>No Evidence Run Yet</strong>
+                  <p className="muted-copy">Submit a known valid claim to run live positive, tamper-rejection, transcript, persistence, and formal-evidence checks.</p>
+                </div>
+              )}
             </>
           ) : (
             <>

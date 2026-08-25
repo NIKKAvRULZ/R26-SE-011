@@ -498,16 +498,22 @@ function createVerificationService(options = {}) {
       // A blockchain anchor can remain valid even when Component 1's optional
       // MongoDB proof index has been rebuilt. Resolve the reference from the
       // same official latest anchor and finalized IPFS dataset in that case.
-      const source = await readVerificationSource();
-      const dataset = await fetchFinalizedDataset(source.merkleRoot);
-      const records = dataset?.data?.recordsWithHashes || dataset?.data?.records || [];
-      const record = records.find((entry) =>
-        canonicalizeIdentifier(entry.candidateId) === candidate &&
-        canonicalizeIdentifier(entry.moduleCode) === module &&
-        (version == null || version === '' || String(entry.version) === String(version))
-      );
-      if (!record) throw error;
-      return { candidateId: candidate, moduleCode: module, version: record.version, merkleRoot: source.merkleRoot, ipfsCID: source.ipfsCID };
+      try {
+        const source = await readVerificationSource();
+        const dataset = await fetchFinalizedDataset(source.merkleRoot);
+        const records = dataset?.data?.recordsWithHashes || dataset?.data?.records || [];
+        const record = records.find((entry) =>
+          canonicalizeIdentifier(entry.candidateId) === candidate &&
+          canonicalizeIdentifier(entry.moduleCode) === module &&
+          (version == null || version === '' || String(entry.version) === String(version))
+        );
+        if (!record) throw error;
+        return { candidateId: candidate, moduleCode: module, version: record.version, merkleRoot: source.merkleRoot, ipfsCID: source.ipfsCID };
+      } catch (_fallbackError) {
+        // The direct Component 1 record endpoint is authoritative for a miss.
+        // A failed optional dataset fallback must not turn that 404 into 503.
+        throw error;
+      }
     }
     // Component 1 may return the reference in `record` or at the top level.
     const record = payload?.record || payload;
