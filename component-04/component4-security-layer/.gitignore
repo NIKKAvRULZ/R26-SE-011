@@ -1,0 +1,62 @@
+# Dependency directories
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Build artifacts
+build/
+dist/
+
+# ZKP proof outputs (contain student data — never commit)
+proof-output/
+
+# Circuit artifacts
+circuits/*.r1cs
+circuits/*.sym
+circuits/*_js/
+circuits/*.zkey
+circuits/*.ptau
+
+# Snarkjs outputs
+*.zkey
+*.ptau
+*.r1cs
+*.sym
+
+# Verification keys (contain sensitive setup info)
+verification_key.json
+
+# Environment files — NEVER commit secrets
+backend/.env
+.env
+.env.*
+!backend/.env.example
+
+# Runtime auth store (real company/user data)
+backend/data/
+
+# Logs
+*.log
+logs/
+
+# Certora Prover auto-generated cache (re-created by certoraRun)
+.certora_internal/
+.certora_sources/
+.certora_build.json
+.certora_build_output_props.json
+.certora_config/
+.certora_metadata.json
+.certora_verify.json
+.configuration_layout.json
+.vscode_extension_info.json
+run.conf
+certora-*.log
+certora-new*.log
+gen-out.txt
+setup-out.txt
+verify-out.txt
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/settings.json
