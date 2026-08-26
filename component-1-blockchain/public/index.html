@@ -10,7 +10,7 @@
   >
 
   <title>
-    Blockchain Proof Layer
+    Component 1 · Blockchain Proof Layer
   </title>
 
 
@@ -121,7 +121,7 @@
         100%;
 
       max-width:
-        1040px;
+        1100px;
     }
 
 
@@ -217,7 +217,7 @@
     .sub {
 
       max-width:
-        760px;
+        820px;
 
       color:
         var(--text-mid);
@@ -286,7 +286,7 @@
         hidden;
 
       margin-bottom:
-        16px;
+        18px;
     }
 
 
@@ -390,6 +390,19 @@
     }
 
 
+    .badge.green {
+
+      border-color:
+        rgba(104,211,145,0.20);
+
+      background:
+        rgba(104,211,145,0.08);
+
+      color:
+        var(--green);
+    }
+
+
     .card-body {
 
       padding:
@@ -490,6 +503,9 @@
 
       font-size:
         12px;
+
+      line-height:
+        1.6;
     }
 
 
@@ -644,7 +660,7 @@
         collapse;
 
       min-width:
-        780px;
+        900px;
     }
 
 
@@ -708,27 +724,24 @@
     }
 
 
-    .verification-grid {
+    .flow-grid {
 
       display:
         grid;
 
       grid-template-columns:
-        repeat(3,1fr);
+        repeat(2, minmax(0,1fr));
 
       gap:
         12px;
-
-      margin-bottom:
-        14px;
     }
 
 
     @media (
-      max-width:850px
+      max-width:800px
     ) {
 
-      .verification-grid {
+      .flow-grid {
 
         grid-template-columns:
           1fr;
@@ -736,109 +749,110 @@
     }
 
 
-    .field {
+    .flow-item {
 
-      display:
-        flex;
+      padding:
+        16px;
 
-      flex-direction:
-        column;
+      border:
+        1px solid var(--border);
 
-      gap:
-        7px;
+      border-radius:
+        12px;
+
+      background:
+        rgba(255,255,255,0.02);
     }
 
 
-    .field label {
+    .flow-number {
+
+      display:
+        inline-flex;
+
+      width:
+        24px;
+
+      height:
+        24px;
+
+      align-items:
+        center;
+
+      justify-content:
+        center;
+
+      margin-bottom:
+        10px;
+
+      border:
+        1px solid rgba(99,179,237,0.20);
+
+      border-radius:
+        7px;
+
+      background:
+        rgba(99,179,237,0.07);
 
       color:
-        var(--text-dim);
+        var(--accent2);
 
       font-family:
         var(--mono);
 
       font-size:
         10px;
-
-      letter-spacing:
-        0.12em;
-
-      text-transform:
-        uppercase;
     }
 
 
-    .field input {
+    .flow-title {
 
-      width:
-        100%;
-
-      padding:
-        9px 10px;
-
-      outline:
-        none;
-
-      border:
-        1px solid rgba(255,255,255,0.08);
-
-      border-radius:
-        8px;
-
-      background:
-        rgba(255,255,255,0.04);
+      margin-bottom:
+        6px;
 
       color:
         var(--text);
+
+      font-size:
+        13px;
+
+      font-weight:
+        600;
+    }
+
+
+    .flow-description {
+
+      color:
+        var(--text-mid);
 
       font-family:
         var(--mono);
 
       font-size:
-        12px;
+        11px;
+
+      line-height:
+        1.7;
     }
 
 
-    .field input:focus {
-
-      border-color:
-        var(--accent);
-
-      background:
-        rgba(99,179,237,0.06);
-    }
-
-
-    .verification-result {
-
-      display:
-        none;
-
-      margin-top:
-        14px;
-    }
-
-
-    .verification-result.visible {
-
-      display:
-        block;
-    }
-
-
-    .proof-row {
+    .api-row {
 
       display:
         flex;
+
+      align-items:
+        center;
 
       justify-content:
         space-between;
 
       gap:
-        15px;
+        16px;
 
       padding:
-        8px 0;
+        12px 0;
 
       border-bottom:
         1px solid rgba(255,255,255,0.04);
@@ -851,30 +865,40 @@
     }
 
 
-    .proof-row:last-child {
+    .api-row:last-child {
 
       border-bottom:
         none;
     }
 
 
-    .proof-row span:first-child {
+    .api-method {
 
       color:
-        var(--text-dim);
+        var(--green);
+
+      margin-right:
+        8px;
     }
 
 
-    .proof-row span:last-child {
+    .api-path {
 
       color:
         var(--accent2);
 
-      text-align:
-        right;
-
       word-break:
         break-all;
+    }
+
+
+    .api-status {
+
+      color:
+        var(--green);
+
+      white-space:
+        nowrap;
     }
 
 
@@ -928,7 +952,7 @@
 
       <div class="tag-dot"></div>
 
-      Research demo · Blockchain proof layer
+      Component 1 · Blockchain Proof Layer
 
     </div>
 
@@ -944,9 +968,9 @@
 
     <p class="sub">
 
-      Displays the latest finalized dataset received from
-      Component 2 and anchored by Component 1 on IPFS and
-      the blockchain.
+      Finalized academic records received from Component 2,
+      cryptographically validated and anchored by Component 1
+      using SHA-256, Merkle Trees, IPFS and blockchain storage.
 
     </p>
 
@@ -957,7 +981,7 @@
 
 
   <!-- =====================================================
-       ACTIONS
+       REFRESH ACTION
   ====================================================== -->
 
   <div class="actions">
@@ -965,18 +989,20 @@
     <button
       class="primary"
       id="refresh-btn"
-      onclick="loadLatestProof()">
+      onclick="loadLatestProof()"
+    >
 
-      ↻ Refresh latest anchored data
+      ↻ Refresh latest anchored proof
 
     </button>
 
 
     <span
       class="status"
-      id="status">
+      id="status"
+    >
 
-      Loading latest anchored data…
+      Loading latest anchored proof…
 
     </span>
 
@@ -988,7 +1014,9 @@
   ====================================================== -->
 
   <p class="section-label">
+
     Latest anchored proof
+
   </p>
 
 
@@ -998,12 +1026,16 @@
     <div class="result-card blue">
 
       <div class="result-label">
+
         Merkle Root
+
       </div>
+
 
       <div
         class="result-value"
-        id="merkle-root">
+        id="merkle-root"
+      >
 
         Not loaded
 
@@ -1015,12 +1047,16 @@
     <div class="result-card green">
 
       <div class="result-label">
+
         IPFS CID
+
       </div>
+
 
       <div
         class="result-value green-text"
-        id="ipfs-cid">
+        id="ipfs-cid"
+      >
 
         Not loaded
 
@@ -1032,12 +1068,16 @@
     <div class="result-card yellow">
 
       <div class="result-label">
+
         Blockchain Timestamp
+
       </div>
+
 
       <div
         class="result-value yellow-text"
-        id="blockchain-time">
+        id="blockchain-time"
+      >
 
         Not loaded
 
@@ -1049,12 +1089,16 @@
     <div class="result-card">
 
       <div class="result-label">
+
         Blockchain Transaction
+
       </div>
+
 
       <div
         class="result-value"
-        id="transaction-hash">
+        id="transaction-hash"
+      >
 
         Not loaded
 
@@ -1066,7 +1110,7 @@
 
 
   <!-- =====================================================
-       IPFS DATASET
+       FINALIZED DATASET
   ====================================================== -->
 
   <div class="card">
@@ -1080,7 +1124,9 @@
         </div>
 
         <span>
+
           Finalized dataset from Component 2
+
         </span>
 
       </div>
@@ -1088,7 +1134,8 @@
 
       <span
         class="badge"
-        id="dataset-badge">
+        id="dataset-badge"
+      >
 
         Not loaded
 
@@ -1101,14 +1148,11 @@
 
       <p
         class="status"
-        style="
-          margin-bottom:14px;
-          line-height:1.7;
-        ">
+        style="margin-bottom:14px;"
+      >
 
-        This table is loaded from the IPFS dataset that
-        Component 1 anchored after receiving finalized
-        records from Component 2.
+        This table displays the actual finalized records
+        contained in the latest IPFS proof dataset.
 
       </p>
 
@@ -1142,7 +1186,7 @@
               </th>
 
               <th>
-                Hash
+                SHA-256 Hash
               </th>
 
             </tr>
@@ -1151,7 +1195,8 @@
 
 
           <tbody
-            id="dataset-body">
+            id="dataset-body"
+          >
 
           </tbody>
 
@@ -1163,13 +1208,14 @@
 
   </div>
 
-
-  <!-- =====================================================
-       MERKLE PROOF TEST
+<!-- =====================================================
+       PROOF INDEX STATUS
   ====================================================== -->
 
   <p class="section-label">
-    Merkle proof API test
+
+    Proof index status
+
   </p>
 
 
@@ -1180,18 +1226,18 @@
       <div class="card-header-left">
 
         <div class="icon">
-          🔐
+          🔎
         </div>
 
         <span>
-          Component 1 cryptographic proof test
+          Component 4 proof lookup readiness
         </span>
 
       </div>
 
 
-      <span class="badge">
-        Component 4 API demo
+      <span class="badge green">
+        AVAILABLE
       </span>
 
     </div>
@@ -1199,188 +1245,221 @@
 
     <div class="card-body">
 
-      <div class="verification-grid">
+      <div class="results-grid">
 
+        <div class="result-card green">
 
-        <div class="field">
+          <div class="result-label">
+            Proof index
+          </div>
 
-          <label
-            for="verify-root">
-
-            Merkle Root
-
-          </label>
-
-
-          <input
-            id="verify-root"
-            type="text"
-            placeholder="Loaded automatically"
-          >
+          <div class="result-value green-text">
+            ✓ Ready for candidate/module lookup
+          </div>
 
         </div>
 
 
-        <div class="field">
+        <div class="result-card blue">
 
-          <label
-            for="verify-candidate">
+          <div class="result-label">
+            Lookup mapping
+          </div>
 
-            Candidate ID
-
-          </label>
-
-
-          <input
-            id="verify-candidate"
-            type="text"
-            placeholder="e.g. TEST001"
-          >
-
-        </div>
-
-
-        <div class="field">
-
-          <label
-            for="verify-module">
-
-            Module Code
-
-          </label>
-
-
-          <input
-            id="verify-module"
-            type="text"
-            placeholder="e.g. SE3040"
-          >
+          <div class="result-value">
+            Candidate ID + Module Code
+            <br>
+            ↓
+            <br>
+            Merkle Root + IPFS CID
+          </div>
 
         </div>
 
       </div>
 
 
-      <button
-        onclick="verifyStudent()">
+      <p
+        class="status"
+        style="margin-top:2px;"
+      >
+        Component 1 maintains the proof index after successful
+        blockchain anchoring. Component 4 can use this indexed
+        proof context to locate the correct anchored dataset for
+        a verification request.
+      </p>
 
-        Verify Merkle membership
+    </div>
 
-      </button>
+  </div>
+
+<!-- =====================================================
+       COMPONENT 1 FLOW
+  ====================================================== -->
+
+  <p class="section-label">
+
+    Component 1 processing flow
+
+  </p>
 
 
-      <div
-        class="verification-result"
-        id="verification-result">
+  <div class="card">
 
-        <div class="result-card blue">
+    <div class="card-header">
 
-          <div class="result-label">
+      <div class="card-header-left">
 
-            Result
+        <div class="icon">
+          ⚙
+        </div>
 
+        <span>
+
+          Cryptographic anchoring pipeline
+
+        </span>
+
+      </div>
+
+
+      <span class="badge green">
+
+        Component 1 responsibility
+
+      </span>
+
+    </div>
+
+
+    <div class="card-body">
+
+      <div class="flow-grid">
+
+
+        <div class="flow-item">
+
+          <div class="flow-number">
+            01
           </div>
 
-
-          <div
-            class="result-value"
-            id="verification-status">
-
+          <div class="flow-title">
+            Receive finalized records
           </div>
 
+          <div class="flow-description">
 
-          <div
-            style="
-              margin-top:12px;
-            ">
-
-
-            <div class="proof-row">
-
-              <span>
-                Candidate
-              </span>
-
-              <span
-                id="proof-candidate">
-
-              </span>
-
-            </div>
-
-
-            <div class="proof-row">
-
-              <span>
-                Module
-              </span>
-
-              <span
-                id="proof-module">
-
-              </span>
-
-            </div>
-
-
-            <div class="proof-row">
-
-              <span>
-                Official Hash
-              </span>
-
-              <span
-                id="proof-hash">
-
-              </span>
-
-            </div>
-
-
-            <div class="proof-row">
-
-              <span>
-                Leaf Index
-              </span>
-
-              <span
-                id="proof-index">
-
-              </span>
-
-            </div>
-
-
-            <div class="proof-row">
-
-              <span>
-                Proof Steps
-              </span>
-
-              <span
-                id="proof-count">
-
-              </span>
-
-            </div>
-
-
-            <div class="proof-row">
-
-              <span>
-                Proof Verified
-              </span>
-
-              <span
-                id="proof-verified">
-
-              </span>
-
-            </div>
+            Component 2 sends finalized academic
+            records and their SHA-256 hashes to
+            <strong>/blockchain/storeHash</strong>.
 
           </div>
 
         </div>
+
+
+        <div class="flow-item">
+
+          <div class="flow-number">
+            02
+          </div>
+
+          <div class="flow-title">
+            Validate SHA-256 hashes
+          </div>
+
+          <div class="flow-description">
+
+            Component 1 recalculates the hash using
+            the canonical record format and compares
+            it with the hash received from Component 2.
+
+          </div>
+
+        </div>
+
+
+        <div class="flow-item">
+
+          <div class="flow-number">
+            03
+          </div>
+
+          <div class="flow-title">
+            Generate Merkle Root
+          </div>
+
+          <div class="flow-description">
+
+            The validated record hashes are used as
+            Merkle leaves to generate the official
+            dataset Merkle Root.
+
+          </div>
+
+        </div>
+
+
+        <div class="flow-item">
+
+          <div class="flow-number">
+            04
+          </div>
+
+          <div class="flow-title">
+            Store finalized dataset on IPFS
+          </div>
+
+          <div class="flow-description">
+
+            Component 1 uploads the finalized proof
+            manifest to IPFS and receives the CID.
+
+          </div>
+
+        </div>
+
+
+        <div class="flow-item">
+
+          <div class="flow-number">
+            05
+          </div>
+
+          <div class="flow-title">
+            Anchor proof on blockchain
+          </div>
+
+          <div class="flow-description">
+
+            The Merkle Root and IPFS CID are permanently
+            anchored using the ProofStorage smart contract.
+
+          </div>
+
+        </div>
+
+
+        <div class="flow-item">
+
+          <div class="flow-number">
+            06
+          </div>
+
+          <div class="flow-title">
+            Maintain proof lookup index
+          </div>
+
+          <div class="flow-description">
+
+            After successful anchoring, Component 1 stores
+            candidate + module → Merkle Root + IPFS CID
+            in the MongoDB proof index for Component 4.
+
+          </div>
+
+        </div>
+
 
       </div>
 
@@ -1388,25 +1467,25 @@
 
   </div>
 
-
-  <!-- =====================================================
+<!-- =====================================================
        FOOTER
   ====================================================== -->
 
   <div class="footer">
 
-    Component 2 provides finalized records and SHA-256 hashes.
-    Component 1 validates those hashes, creates the Merkle Root,
-    stores the finalized proof dataset on IPFS, and anchors the
-    Merkle Root and CID on the blockchain.
+    Component 1 receives finalized records from Component 2,
+    validates the SHA-256 hashes, generates the Merkle Root,
+    stores the finalized dataset on IPFS, anchors the Root and
+    CID on the blockchain, and maintains the MongoDB proof index.
 
-    The page then retrieves the latest anchored dataset through
-    Component 1 and displays the real finalized records.
+    <br><br>
 
-    The Merkle proof section is a Component 1 API demonstration
-    for the future Component 4 integration.
+    The candidate/module verification portal belongs to
+    Component 4. This dashboard only demonstrates the
+    Component 1 proof and anchoring layer.
 
   </div>
+
 
 </div>
 
@@ -1414,7 +1493,7 @@
 <script>
 
   // =====================================================
-  // LOAD LATEST ANCHORED PROOF + REAL DATASET
+  // LOAD LATEST ANCHORED PROOF
   // =====================================================
 
   async function loadLatestProof() {
@@ -1438,7 +1517,7 @@
     try {
 
       // =================================================
-      // STEP 1 — GET LATEST ROOT + CID
+      // GET LATEST ANCHORED PROOF
       // =================================================
 
       const latestResponse =
@@ -1473,6 +1552,7 @@
           latestData.message ||
           "No latest anchored proof found."
         );
+
       }
 
 
@@ -1491,6 +1571,7 @@
         throw new Error(
           "Latest proof response did not contain a Merkle Root."
         );
+
       }
 
 
@@ -1505,7 +1586,7 @@
 
 
       // =================================================
-      // DISPLAY IPFS CID
+      // DISPLAY CID
       // =================================================
 
       document.getElementById(
@@ -1519,13 +1600,18 @@
         <br><br>
 
         <a
-          href="https://red-rare-goat-296.mypinata.cloud/ipfs/${encodeURIComponent(proof.ipfsCID)}"
+          href="
+            https://red-rare-goat-296.mypinata.cloud/ipfs/${encodeURIComponent(
+              proof.ipfsCID
+            )}
+          "
           target="_blank"
           rel="noopener"
           style="
             color:var(--green);
             text-decoration:none;
-          ">
+          "
+        >
 
           View finalized dataset on IPFS ↗
 
@@ -1547,7 +1633,7 @@
 
 
       // =================================================
-      // DISPLAY TRANSACTION HASH
+      // DISPLAY TRANSACTION
       // =================================================
 
       document.getElementById(
@@ -1573,21 +1659,11 @@
 
 
       // =================================================
-      // SET ROOT FOR MERKLE PROOF TEST
-      // =================================================
-
-      document.getElementById(
-        "verify-root"
-      ).value =
-        merkleRoot;
-
-
-      // =================================================
-      // STEP 2 — RETRIEVE REAL COMPONENT 2 DATA
+      // LOAD FINALIZED DATA FROM IPFS
       // =================================================
 
       setStatus(
-        "Loading real finalized records from IPFS…",
+        "Loading finalized records from IPFS…",
         "var(--text-mid)"
       );
 
@@ -1632,6 +1708,7 @@
           dataset.message ||
           "Unable to load finalized dataset."
         );
+
       }
 
 
@@ -1646,14 +1723,11 @@
       ) {
 
         throw new Error(
-          "IPFS dataset does not contain a valid finalized record list."
+          "IPFS dataset does not contain a valid record list."
         );
+
       }
 
-
-      // =================================================
-      // RENDER ACTUAL DATA
-      // =================================================
 
       renderDataset(
         records
@@ -1663,11 +1737,11 @@
       document.getElementById(
         "dataset-badge"
       ).textContent =
-        `${records.length} real finalized record(s)`;
+        `${records.length} finalized record(s)`;
 
 
       setStatus(
-        `✔ Loaded ${records.length} real finalized record(s) from the latest Component 2 batch.`,
+        `✔ Latest anchored proof loaded successfully. ${records.length} finalized record(s) displayed.`,
         "var(--green)"
       );
 
@@ -1700,7 +1774,7 @@
 
 
   // =====================================================
-  // RENDER REAL DATA
+  // RENDER FINALIZED DATASET
   // =====================================================
 
   function renderDataset(
@@ -1762,13 +1836,10 @@
             )}
           </td>
 
-          <td
-            class="hash">
-
+          <td class="hash">
             ${escapeHtml(
               record.hash
             )}
-
           </td>
 
         `;
@@ -1780,264 +1851,6 @@
 
       }
     );
-
-  }
-
-
-  // =====================================================
-  // MERKLE PROOF TEST
-  // =====================================================
-
-  async function verifyStudent() {
-
-    const merkleRoot =
-      document.getElementById(
-        "verify-root"
-      ).value.trim();
-
-
-    const candidateId =
-      document.getElementById(
-        "verify-candidate"
-      ).value.trim();
-
-
-    const moduleCode =
-      document.getElementById(
-        "verify-module"
-      ).value.trim();
-
-
-    const resultBox =
-      document.getElementById(
-        "verification-result"
-      );
-
-
-    resultBox.classList.remove(
-      "visible"
-    );
-
-
-    if (
-      !merkleRoot ||
-      !candidateId ||
-      !moduleCode
-    ) {
-
-      setStatus(
-        "⚠ Enter Candidate ID and Module Code.",
-        "var(--red)"
-      );
-
-
-      return;
-
-    }
-
-
-    try {
-
-      setStatus(
-        "Generating and verifying Merkle proof…",
-        "var(--text-mid)"
-      );
-
-
-      const response =
-        await fetch(
-          "/proof/merkle-proof",
-          {
-
-            method:
-              "POST",
-
-            headers: {
-
-              "Content-Type":
-                "application/json",
-
-              Accept:
-                "application/json"
-            },
-
-            body:
-              JSON.stringify({
-
-                merkleRoot:
-                  removeHexPrefix(
-                    merkleRoot
-                  ),
-
-                candidateId:
-                  candidateId,
-
-                moduleCode:
-                  moduleCode
-
-              })
-
-          }
-        );
-
-
-      const data =
-        await response.json();
-
-
-      if (
-        !response.ok ||
-        !data.success
-      ) {
-
-        throw new Error(
-          data.error ||
-          data.message ||
-          "Merkle proof generation failed."
-        );
-
-      }
-
-
-      resultBox.classList.add(
-        "visible"
-      );
-
-
-      document.getElementById(
-        "verification-status"
-      ).textContent =
-        data.proofVerified === true
-          ? "✅ VALID — student hash belongs to the anchored Merkle Root."
-          : "❌ INVALID";
-
-
-      document.getElementById(
-        "verification-status"
-      ).className =
-        data.proofVerified === true
-          ? "result-value green-text"
-          : "result-value";
-
-
-      document.getElementById(
-        "proof-candidate"
-      ).textContent =
-        data.record?.candidateId ||
-        "—";
-
-
-      document.getElementById(
-        "proof-module"
-      ).textContent =
-        data.record?.moduleCode ||
-        "—";
-
-
-      document.getElementById(
-        "proof-hash"
-      ).textContent =
-        data.record?.hash ||
-        "—";
-
-
-      document.getElementById(
-        "proof-index"
-      ).textContent =
-        data.leafIndex ??
-        "—";
-
-
-      document.getElementById(
-        "proof-count"
-      ).textContent =
-        Array.isArray(
-          data.proof
-        )
-          ? data.proof.length
-          : "—";
-
-
-      document.getElementById(
-        "proof-verified"
-      ).textContent =
-        data.proofVerified === true
-          ? "TRUE"
-          : "FALSE";
-
-
-      setStatus(
-        "✔ Merkle proof verified.",
-        "var(--green)"
-      );
-
-
-    } catch (error) {
-
-      console.error(
-        "Merkle proof error:",
-        error
-      );
-
-
-      resultBox.classList.remove(
-        "visible"
-      );
-
-
-      clearProofFields();
-
-
-      setStatus(
-        `✕ ${error.message}`,
-        "var(--red)"
-      );
-
-    }
-
-  }
-
-
-  // =====================================================
-  // CLEAR PROOF FIELDS
-  // =====================================================
-
-  function clearProofFields() {
-
-    document.getElementById(
-      "proof-candidate"
-    ).textContent =
-      "";
-
-
-    document.getElementById(
-      "proof-module"
-    ).textContent =
-      "";
-
-
-    document.getElementById(
-      "proof-hash"
-    ).textContent =
-      "";
-
-
-    document.getElementById(
-      "proof-index"
-    ).textContent =
-      "";
-
-
-    document.getElementById(
-      "proof-count"
-    ).textContent =
-      "";
-
-
-    document.getElementById(
-      "proof-verified"
-    ).textContent =
-      "";
 
   }
 
@@ -2083,22 +1896,6 @@
     ).textContent =
       "Not loaded";
 
-
-    document.getElementById(
-      "verify-root"
-    ).value =
-      "";
-
-
-    document.getElementById(
-      "verification-result"
-    ).classList.remove(
-      "visible"
-    );
-
-
-    clearProofFields();
-
   }
 
 
@@ -2128,7 +1925,7 @@
 
 
   // =====================================================
-  // FORMAT BLOCKCHAIN TIMESTAMP
+  // TIMESTAMP FORMAT
   // =====================================================
 
   function formatTimestamp(
@@ -2147,7 +1944,9 @@
 
 
     const numeric =
-      Number(value);
+      Number(
+        value
+      );
 
 
     if (
@@ -2189,7 +1988,7 @@
 
 
   // =====================================================
-  // HTML ESCAPE
+  // ESCAPE HTML
   // =====================================================
 
   function escapeHtml(

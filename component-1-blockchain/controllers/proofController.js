@@ -67,11 +67,217 @@ function verifyComponent2Hash(record) {
         record.version
     ].join("|");
 
-
     return crypto
         .createHash("sha256")
         .update(hashData)
         .digest("hex");
+}
+
+
+// =====================================================
+// NORMALIZE MERKLE ROOT
+// =====================================================
+
+function normalizeMerkleRoot(root) {
+
+    if (!root) {
+        return null;
+    }
+
+    return root.startsWith("0x")
+        ? root
+        : `0x${root}`;
+}
+
+
+// =====================================================
+// CHECK WHETHER ROOT IS ALREADY ANCHORED
+// =====================================================
+//
+// Returns:
+// {
+//   exists: true,
+//   ipfsCID,
+//   timestamp,
+//   uploadedBy
+// }
+//
+// OR
+//
+// {
+//   exists: false
+// }
+//
+// Important:
+// getProof() reverts when the root does not exist.
+// We intentionally catch that specific case and treat
+// it as "not anchored yet".
+//
+// =====================================================
+
+async function getExistingAnchoredProof(
+    provider,
+    proofStorageContract,
+    merkleRoot
+) {
+
+    try {
+
+        const proof =
+            await proofStorageContract.getProof(
+                merkleRoot
+            );
+
+        const ipfsCID =
+            proof[0];
+
+        const timestamp =
+            proof[1];
+
+        const uploadedBy =
+            proof[2];
+
+        if (
+            !ipfsCID ||
+            !timestamp ||
+            timestamp === 0n
+        ) {
+
+            return {
+                exists: false
+            };
+        }
+
+        return {
+
+            exists: true,
+
+            ipfsCID,
+
+            timestamp,
+
+            uploadedBy
+        };
+
+    } catch (error) {
+
+        const message =
+            String(
+                error?.reason ||
+                error?.shortMessage ||
+                error?.message ||
+                ""
+            );
+
+        // The contract uses this revert message
+        // when the requested Root does not exist.
+        if (
+            message.includes(
+                "Proof not found for the provided Merkle Root"
+            )
+        ) {
+
+            return {
+                exists: false
+            };
+        }
+
+        // Some ethers/RPC versions expose the revert
+        // as a generic CALL_EXCEPTION with nested data.
+        // Treat a missing proof only when the known
+        // contract error is present somewhere.
+        const serialized =
+            JSON.stringify(
+                error
+            );
+
+        if (
+            serialized.includes(
+                "Proof not found for the provided Merkle Root"
+            )
+        ) {
+
+            return {
+                exists: false
+            };
+        }
+
+        // Any other error is a real blockchain/RPC failure.
+        throw error;
+    }
+}
+
+
+// =====================================================
+// UPSERT PROOF INDEX
+// =====================================================
+//
+// We deliberately do NOT use insertMany().
+//
+// Repeated Component 2 retries should update the existing
+// candidate/module mapping instead of creating duplicate
+// MongoDB index documents.
+//
+// Version is intentionally NOT stored.
+//
+// =====================================================
+
+async function upsertProofIndex(
+    finalizedRecords,
+    merkleRoot,
+    ipfsCID,
+    anchoredAt
+) {
+
+    let storedCount = 0;
+
+    for (
+        const record
+        of finalizedRecords
+    ) {
+
+        await ResultProofIndex.updateOne(
+
+            {
+                candidateId:
+                    record.candidateId,
+
+                moduleCode:
+                    record.moduleCode
+            },
+
+            {
+                $set: {
+
+                    merkleRoot:
+                        merkleRoot,
+
+                    ipfsCID:
+                        ipfsCID,
+
+                    anchoredAt:
+                        anchoredAt
+                },
+
+                $setOnInsert: {
+
+                    candidateId:
+                        record.candidateId,
+
+                    moduleCode:
+                        record.moduleCode
+                }
+            },
+
+            {
+                upsert: true
+            }
+        );
+
+        storedCount++;
+    }
+
+    return storedCount;
 }
 
 
@@ -95,6 +301,10 @@ exports.generateProofManifest =
             } = req.body;
 
 
+            // =================================================
+            // REQUEST VALIDATION
+            // =================================================
+
             if (
                 !records ||
                 !Array.isArray(records) ||
@@ -102,7 +312,9 @@ exports.generateProofManifest =
             ) {
 
                 return res.status(400).json({
+
                     success: false,
+
                     message:
                         "Payload missing valid academic records array."
                 });
@@ -114,60 +326,68 @@ exports.generateProofManifest =
             // =================================================
 
             const finalizedRecords =
-                records.map((record) => {
+                records.map(
+                    (record) => {
 
-                    if (
-                        !record.candidateId ||
-                        !record.moduleCode ||
-                        record.marks === undefined ||
-                        !record.grade ||
-                        record.version === undefined ||
-                        !record.hash
-                    ) {
+                        if (
+                            !record.candidateId ||
+                            !record.moduleCode ||
+                            record.marks === undefined ||
+                            !record.grade ||
+                            record.version === undefined ||
+                            !record.hash
+                        ) {
 
-                        throw new Error(
-                            `Incomplete record received for candidate ${record.candidateId || "unknown"}`
-                        );
+                            throw new Error(
+                                `Incomplete record received for candidate ${record.candidateId || "unknown"}`
+                            );
+                        }
+
+
+                        const expectedHash =
+                            verifyComponent2Hash(
+                                record
+                            );
+
+
+                        if (
+                            record.hash !==
+                            expectedHash
+                        ) {
+
+                            throw new Error(
+                                `Hash verification failed for candidate ${record.candidateId}`
+                            );
+                        }
+
+
+                        return {
+
+                            candidateId:
+                                record.candidateId,
+
+                            moduleCode:
+                                record.moduleCode,
+
+                            marks:
+                                Number(
+                                    record.marks
+                                ),
+
+                            grade:
+                                record.grade,
+
+                            version:
+                                Number(
+                                    record.version
+                                ),
+
+                            hash:
+                                record.hash
+                        };
+
                     }
-
-
-                    const expectedHash =
-                        verifyComponent2Hash(record);
-
-
-                    if (
-                        record.hash !==
-                        expectedHash
-                    ) {
-
-                        throw new Error(
-                            `Hash verification failed for candidate ${record.candidateId}`
-                        );
-                    }
-
-
-                    return {
-
-                        candidateId:
-                            record.candidateId,
-
-                        moduleCode:
-                            record.moduleCode,
-
-                        marks:
-                            Number(record.marks),
-
-                        grade:
-                            record.grade,
-
-                        version:
-                            Number(record.version),
-
-                        hash:
-                            record.hash
-                    };
-
-                });
+                );
 
 
             // =================================================
@@ -191,7 +411,9 @@ exports.generateProofManifest =
                 );
 
 
-            if (!globalMerkleRoot) {
+            if (
+                !globalMerkleRoot
+            ) {
 
                 return res.status(500).json({
 
@@ -210,49 +432,13 @@ exports.generateProofManifest =
 
 
             // =================================================
-            // CREATE IPFS PAYLOAD
+            // FORMAT MERKLE ROOT
             // =================================================
 
-            const ipfsPayload = {
-
-                recordsWithHashes:
-                    finalizedRecords,
-
-                merkleRoot:
-                    globalMerkleRoot,
-
-                totalRecords:
-                    finalizedRecords.length,
-
-                generatedAt:
-                    new Date().toISOString()
-            };
-
-
-            // =================================================
-            // UPLOAD TO IPFS
-            // =================================================
-
-            console.log(
-                "Uploading grade proof manifest to IPFS via Pinata..."
-            );
-
-
-            const ipfsCID =
-                await uploadToIPFS(
-                    ipfsPayload
+            const formattedMerkleRoot =
+                normalizeMerkleRoot(
+                    globalMerkleRoot
                 );
-
-
-            console.log(
-                "Successfully uploaded to IPFS."
-            );
-
-
-            console.log(
-                "IPFS CID:",
-                ipfsCID
-            );
 
 
             // =================================================
@@ -311,23 +497,236 @@ exports.generateProofManifest =
 
 
             // =================================================
-            // FORMAT MERKLE ROOT
+            // IMPORTANT:
+            // CHECK BLOCKCHAIN BEFORE IPFS UPLOAD
             // =================================================
 
-            const formattedMerkleRoot =
-                globalMerkleRoot.startsWith("0x")
-                    ? globalMerkleRoot
-                    : `0x${globalMerkleRoot}`;
+            console.log(
+                "Checking whether this Merkle Root is already anchored..."
+            );
 
+
+            const existingProof =
+                await getExistingAnchoredProof(
+                    provider,
+                    proofStorageContract,
+                    formattedMerkleRoot
+                );
+
+
+            // =================================================
+            // CASE A — ROOT ALREADY EXISTS
+            // =================================================
+
+            if (
+                existingProof.exists
+            ) {
+
+                console.log(
+                    "Merkle Root is already anchored."
+                );
+
+                console.log(
+                    "Reusing existing blockchain IPFS CID:",
+                    existingProof.ipfsCID
+                );
+
+
+                // =================================================
+                // REUSE EXISTING CID
+                // =================================================
+
+                const existingCID =
+                    existingProof.ipfsCID;
+
+
+                const existingAnchoredAt =
+                    new Date(
+                        Number(
+                            existingProof.timestamp
+                        ) * 1000
+                    );
+
+
+                // =================================================
+                // REPAIR / UPSERT MONGODB INDEX
+                // =================================================
+
+                let proofIndexReady =
+                    true;
+
+                let proofIndexError =
+                    null;
+
+                let indexRecordsStored =
+                    0;
+
+
+                try {
+
+                    indexRecordsStored =
+                        await upsertProofIndex(
+
+                            finalizedRecords,
+
+                            formattedMerkleRoot,
+
+                            existingCID,
+
+                            existingAnchoredAt
+                        );
+
+
+                    console.log(
+                        `Existing proof reused. Proof lookup index updated for ${indexRecordsStored} record(s).`
+                    );
+
+                } catch (
+                    indexError
+                ) {
+
+                    proofIndexReady =
+                        false;
+
+                    proofIndexError =
+                        indexError.message;
+
+
+                    console.error(
+                        "Existing blockchain proof reused, but Proof Index update failed:",
+                        indexError.message
+                    );
+                }
+
+
+                // =================================================
+                // RETURN EXISTING PROOF
+                // =================================================
+
+                return res.status(200).json({
+
+                    success:
+                        true,
+
+                    message:
+                        "Merkle Root was already anchored. Existing IPFS proof was reused.",
+
+                    reusedExistingProof:
+                        true,
+
+                    blockchainTx: {
+
+                        transactionHash:
+                            null,
+
+                        blockNumber:
+                            null,
+
+                        contractAddress:
+                            CONTRACT_ADDRESS,
+
+                        anchoredBy:
+                            existingProof.uploadedBy
+                    },
+
+                    proofData: {
+
+                        merkleRoot:
+                            formattedMerkleRoot,
+
+                        ipfsCID:
+                            existingCID,
+
+                        totalRecordsProcessed:
+                            finalizedRecords.length,
+
+                        indexRecordsStored:
+                            indexRecordsStored,
+
+                        storageStatus:
+                            "Existing blockchain + IPFS proof reused",
+
+                        blockchainReady:
+                            true,
+
+                        proofIndexReady:
+                            proofIndexReady,
+
+                        proofIndexError:
+                            proofIndexError
+                    }
+
+                });
+            }
+
+
+            // =================================================
+            // CASE B — NEW ROOT
+            // =================================================
+
+            console.log(
+                "Merkle Root is not anchored yet."
+            );
+
+            console.log(
+                "Creating new IPFS proof manifest..."
+            );
+
+
+            // =================================================
+            // CREATE IPFS PAYLOAD
+            // =================================================
+
+            const ipfsPayload = {
+
+                recordsWithHashes:
+                    finalizedRecords,
+
+                merkleRoot:
+                    globalMerkleRoot,
+
+                totalRecords:
+                    finalizedRecords.length,
+
+                generatedAt:
+                    new Date().toISOString()
+            };
+
+
+            // =================================================
+            // UPLOAD TO IPFS
+            // =================================================
+
+            console.log(
+                "Uploading grade proof manifest to IPFS via Pinata..."
+            );
+
+
+            const ipfsCID =
+                await uploadToIPFS(
+                    ipfsPayload
+                );
+
+
+            console.log(
+                "Successfully uploaded to IPFS."
+            );
+
+
+            console.log(
+                "IPFS CID:",
+                ipfsCID
+            );
+
+
+            // =================================================
+            // ANCHOR ROOT + CID
+            // =================================================
 
             console.log(
                 `Submitting anchoring transaction for Merkle Root: ${formattedMerkleRoot}`
             );
 
-
-            // =================================================
-            // STORE PROOF ON BLOCKCHAIN
-            // =================================================
 
             const tx =
                 await proofStorageContract.storeProof(
@@ -356,93 +755,74 @@ exports.generateProofManifest =
 
 
             // =================================================
-            // STORE CANDIDATE -> ROOT/CID LOOKUP INDEX
+            // STORE CANDIDATE -> ROOT/CID INDEX
             // =================================================
-            //
-            // IMPORTANT:
-            // This happens ONLY after the blockchain
-            // transaction has been confirmed.
-            //
-            // Version is intentionally NOT stored in this
-            // lookup index.
-            //
-            // =================================================
-// =====================================================
-// STORE CANDIDATE -> ROOT/CID LOOKUP INDEX
-// =====================================================
-//
-// Blockchain anchoring has already succeeded at this point.
-//
-// A MongoDB index failure must NOT turn a successful
-// blockchain anchor into HTTP 500. Otherwise Component 2
-// may retry the same Merkle Root, which the smart contract
-// correctly rejects as already anchored.
-//
-// =====================================================
 
-const anchoredAt = new Date();
+            const anchoredAt =
+                new Date();
 
-const indexDocuments =
-    finalizedRecords.map(
-        (record) => ({
-            candidateId:
-                record.candidateId,
 
-            moduleCode:
-                record.moduleCode,
+            let proofIndexReady =
+                true;
 
-            merkleRoot:
-                formattedMerkleRoot,
+            let proofIndexError =
+                null;
 
-            ipfsCID:
-                ipfsCID,
+            let indexRecordsStored =
+                0;
 
-            anchoredAt:
-                anchoredAt
-        })
-    );
 
-let proofIndexReady = true;
-let proofIndexError = null;
+            try {
 
-try {
+                indexRecordsStored =
+                    await upsertProofIndex(
 
-    if (indexDocuments.length > 0) {
+                        finalizedRecords,
 
-        await ResultProofIndex.insertMany(
-            indexDocuments
-        );
-    }
+                        formattedMerkleRoot,
 
-    console.log(
-        `Proof lookup index updated for ${indexDocuments.length} record(s).`
-    );
+                        ipfsCID,
 
-} catch (indexError) {
+                        anchoredAt
+                    );
 
-    proofIndexReady = false;
 
-    proofIndexError =
-        indexError.message;
+                console.log(
+                    `Proof lookup index updated for ${indexRecordsStored} record(s).`
+                );
 
-    console.error(
-        "Blockchain anchor succeeded, but Proof Index update failed:",
-        indexError.message
-    );
-}
+            } catch (
+                indexError
+            ) {
+
+                proofIndexReady =
+                    false;
+
+                proofIndexError =
+                    indexError.message;
+
+
+                console.error(
+                    "Blockchain anchor succeeded, but Proof Index update failed:",
+                    indexError.message
+                );
+            }
 
 
             // =================================================
-            // RETURN RESPONSE
+            // RETURN NEW PROOF
             // =================================================
 
             return res.status(200).json({
 
-                success: true,
+                success:
+                    true,
 
                 message:
                     "Cryptographic layer proofs successfully minted and permanently anchored to blockchain ledger.",
 
+                reusedExistingProof:
+                    false,
 
                 blockchainTx: {
 
@@ -459,34 +839,32 @@ try {
                         receipt.from
                 },
 
-proofData: {
+                proofData: {
 
-    merkleRoot:
-        globalMerkleRoot,
+                    merkleRoot:
+                        globalMerkleRoot,
 
-    ipfsCID:
-        ipfsCID,
+                    ipfsCID:
+                        ipfsCID,
 
-    totalRecordsProcessed:
-        finalizedRecords.length,
+                    totalRecordsProcessed:
+                        finalizedRecords.length,
 
-    indexRecordsStored:
-        proofIndexReady
-            ? indexDocuments.length
-            : 0,
+                    indexRecordsStored:
+                        indexRecordsStored,
 
-    storageStatus:
-        "Decentralized IPFS Immutable Storage Layer Confirmed",
+                    storageStatus:
+                        "Decentralized IPFS Immutable Storage Layer Confirmed",
 
-    blockchainReady:
-        true,
+                    blockchainReady:
+                        true,
 
-    proofIndexReady:
-        proofIndexReady,
+                    proofIndexReady:
+                        proofIndexReady,
 
-    proofIndexError:
-        proofIndexError
-}
+                    proofIndexError:
+                        proofIndexError
+                }
 
             });
 
@@ -500,7 +878,8 @@ proofData: {
 
             return res.status(500).json({
 
-                success: false,
+                success:
+                    false,
 
                 message:
                     "Internal server processing failure or blockchain anchoring rejection.",
@@ -518,9 +897,7 @@ proofData: {
 //
 // GET /proof/latest
 //
-// Uses the ProofAnchored blockchain event instead of
-// getLatestProof(), so the existing contract ABI is enough.
-//
+// Uses the ProofAnchored blockchain event.
 // =====================================================
 
 exports.getLatestProof =
@@ -576,7 +953,7 @@ exports.getLatestProof =
 
 
             // =================================================
-            // GET PROOF ANCHORED EVENTS
+            // GET PROOF EVENTS
             // =================================================
 
             const filter =
@@ -602,7 +979,8 @@ exports.getLatestProof =
 
                 return res.status(404).json({
 
-                    success: false,
+                    success:
+                        false,
 
                     message:
                         "No latest anchored proof is available."
@@ -615,7 +993,9 @@ exports.getLatestProof =
             // =================================================
 
             const latestEvent =
-                events[events.length - 1];
+                events[
+                    events.length - 1
+                ];
 
 
             const eventArgs =
@@ -664,13 +1044,17 @@ exports.getLatestProof =
                     );
 
 
-                if (block) {
+                if (
+                    block
+                ) {
 
                     timestamp =
                         block.timestamp;
                 }
 
-            } catch (timestampError) {
+            } catch (
+                timestampError
+            ) {
 
                 console.warn(
                     "Unable to read anchor block timestamp:",
@@ -685,7 +1069,8 @@ exports.getLatestProof =
 
             return res.status(200).json({
 
-                success: true,
+                success:
+                    true,
 
                 proof: {
 
@@ -722,7 +1107,8 @@ exports.getLatestProof =
 
             return res.status(500).json({
 
-                success: false,
+                success:
+                    false,
 
                 message:
                     "Unable to retrieve the latest anchored proof.",
@@ -753,7 +1139,8 @@ exports.getRecordProofContext =
             const {
                 candidateId,
                 moduleCode
-            } = req.params;
+            } =
+                req.params;
 
 
             // =================================================
@@ -767,7 +1154,8 @@ exports.getRecordProofContext =
 
                 return res.status(400).json({
 
-                    success: false,
+                    success:
+                        false,
 
                     message:
                         "Candidate ID and module code are required."
@@ -777,6 +1165,7 @@ exports.getRecordProofContext =
 
             const normalizedCandidateId =
                 candidateId.trim();
+
 
             const normalizedModuleCode =
                 moduleCode.trim();
@@ -816,7 +1205,8 @@ exports.getRecordProofContext =
 
                 return res.status(404).json({
 
-                    success: false,
+                    success:
+                        false,
 
                     message:
                         "No anchored proof index found for this candidate and module.",
@@ -836,7 +1226,8 @@ exports.getRecordProofContext =
 
             return res.status(200).json({
 
-                success: true,
+                success:
+                    true,
 
                 record: {
 
@@ -868,7 +1259,8 @@ exports.getRecordProofContext =
 
             return res.status(500).json({
 
-                success: false,
+                success:
+                    false,
 
                 message:
                     "Unable to retrieve the anchored proof lookup.",
@@ -895,7 +1287,8 @@ exports.getAnchoredProof =
 
             let {
                 merkleRoot
-            } = req.params;
+            } =
+                req.params;
 
 
             if (
@@ -915,7 +1308,8 @@ exports.getAnchoredProof =
 
                 return res.status(400).json({
 
-                    success: false,
+                    success:
+                        false,
 
                     message:
                         "Invalid Merkle Root format."
@@ -982,7 +1376,8 @@ exports.getAnchoredProof =
 
             return res.status(200).json({
 
-                success: true,
+                success:
+                    true,
 
                 proof: {
 
@@ -1011,7 +1406,8 @@ exports.getAnchoredProof =
 
             return res.status(404).json({
 
-                success: false,
+                success:
+                    false,
 
                 message:
                     "No blockchain proof found for this Merkle Root.",
@@ -1038,7 +1434,8 @@ exports.getProofData =
 
             let {
                 merkleRoot
-            } = req.params;
+            } =
+                req.params;
 
 
             if (
@@ -1058,7 +1455,8 @@ exports.getProofData =
 
                 return res.status(400).json({
 
-                    success: false,
+                    success:
+                        false,
 
                     message:
                         "Invalid Merkle Root format."
@@ -1144,7 +1542,8 @@ exports.getProofData =
 
                 return res.status(500).json({
 
-                    success: false,
+                    success:
+                        false,
 
                     message:
                         "IPFS data does not contain a Merkle Root."
@@ -1178,7 +1577,8 @@ exports.getProofData =
 
                 return res.status(409).json({
 
-                    success: false,
+                    success:
+                        false,
 
                     message:
                         "IPFS data does not match the blockchain Merkle Root.",
@@ -1204,7 +1604,8 @@ exports.getProofData =
 
                 return res.status(500).json({
 
-                    success: false,
+                    success:
+                        false,
 
                     message:
                         "IPFS dataset does not contain a valid finalized record list."
@@ -1214,7 +1615,8 @@ exports.getProofData =
 
             return res.status(200).json({
 
-                success: true,
+                success:
+                    true,
 
                 verificationSource: {
 
@@ -1249,7 +1651,8 @@ exports.getProofData =
 
             return res.status(500).json({
 
-                success: false,
+                success:
+                    false,
 
                 message:
                     "Unable to retrieve finalized proof data from IPFS.",
@@ -1278,7 +1681,8 @@ exports.getStudentMerkleProof =
                 merkleRoot,
                 candidateId,
                 moduleCode
-            } = req.body;
+            } =
+                req.body;
 
 
             if (
@@ -1289,7 +1693,8 @@ exports.getStudentMerkleProof =
 
                 return res.status(400).json({
 
-                    success: false,
+                    success:
+                        false,
 
                     message:
                         "merkleRoot, candidateId and moduleCode are required."
@@ -1320,7 +1725,8 @@ exports.getStudentMerkleProof =
 
                 return res.status(400).json({
 
-                    success: false,
+                    success:
+                        false,
 
                     message:
                         "Invalid Merkle Root format."
@@ -1414,7 +1820,8 @@ exports.getStudentMerkleProof =
 
                 return res.status(500).json({
 
-                    success: false,
+                    success:
+                        false,
 
                     message:
                         "IPFS dataset does not contain valid finalized records."
@@ -1446,7 +1853,8 @@ exports.getStudentMerkleProof =
 
                 return res.status(409).json({
 
-                    success: false,
+                    success:
+                        false,
 
                     message:
                         "IPFS Merkle Root does not match blockchain Merkle Root.",
@@ -1480,7 +1888,8 @@ exports.getStudentMerkleProof =
 
                 return res.status(404).json({
 
-                    success: false,
+                    success:
+                        false,
 
                     message:
                         "Student/module record not found in finalized dataset.",
@@ -1538,7 +1947,8 @@ exports.getStudentMerkleProof =
 
                 return res.status(500).json({
 
-                    success: false,
+                    success:
+                        false,
 
                     message:
                         "Generated Merkle proof could not be verified against the official Merkle Root."
@@ -1552,7 +1962,8 @@ exports.getStudentMerkleProof =
 
             return res.status(200).json({
 
-                success: true,
+                success:
+                    true,
 
                 merkleRoot:
                     formattedMerkleRoot,
@@ -1601,7 +2012,8 @@ exports.getStudentMerkleProof =
 
             return res.status(500).json({
 
-                success: false,
+                success:
+                    false,
 
                 message:
                     "Unable to generate Merkle proof.",
