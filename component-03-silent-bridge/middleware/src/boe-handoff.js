@@ -2,7 +2,7 @@
 const axios = require('axios');
 
 async function pushToBOE(uploadReceipt, extractedData, originalTimestamp) {
-    const COMPONENT_2_ENDPOINT = 'http://localhost:5001/api/boe/ingest';
+    const COMPONENT_2_ENDPOINT = process.env.COMPONENT_2_URL || 'http://localhost:5001/api/boe/ingest';
 
     const payload = {
         metadata: {
