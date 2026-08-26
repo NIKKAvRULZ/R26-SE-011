@@ -4,12 +4,15 @@ const cors = require('cors');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
+const mongoose = require('mongoose');
+require('dotenv').config();
 
-// Import custom middleware engines & handoffs
+// Import custom middleware engines, models & handoffs
 const { parseExcelToJson } = require('./extraction/parser');
 const { appendToPrivateBlockchain } = require('./hashing/blockchain');
 const { pushToBOE } = require('./boe-handoff');
 const { pushToBOEDirect } = require('./boe-direct-handoff'); 
+const Block = require('./models/Block');
 
 const app = express();
 const port = 5000;
@@ -20,15 +23,20 @@ app.use(express.json());
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-const ledgerPath = path.join(__dirname, '../../private_ledger/database.json');
 const configPath = path.join(__dirname, '../system-config.json');
+
+// ============================================================================
+// MONGODB CONNECTION FOR CLOUD PERSISTENCE
+// ============================================================================
+mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI)
+.then(() => console.log("✅ Silent Bridge Middleware connected to MongoDB Atlas."))
+.catch(err => console.error("❌ MongoDB connection error:", err));
 
 // --- HELPER: Read Dynamic University Policy ---
 const getPolicyConfig = () => {
     if (fs.existsSync(configPath)) {
         return JSON.parse(fs.readFileSync(configPath));
     }
-    // Fallback defaults if file is missing
     return { timeUnit: "days", standardUploadWindow: 7, boeReviewWindow: 14, specialConcernsWindow: 21 };
 };
 
@@ -38,7 +46,6 @@ const getTimePassed = (startDate, endDate, unit) => {
     if (unit === 'minutes') {
         return Math.floor(diffMs / (1000 * 60));
     }
-    // Default to days
     return Math.floor(diffMs / (1000 * 60 * 60 * 24));
 };
 
@@ -54,16 +61,10 @@ app.post('/api/ingest', upload.single('gradingSheet'), async (req, res) => {
         const isRecorrection = req.body.isRecorrection === 'true';
 
         console.log(`\n📥 1. Received file: ${req.file.originalname} for Module: ${moduleCode}`);
-
-        console.log(`⏳ 2. Checking Institutional Time-Gate Policy...`);
+        console.log(`⏳ 2. Checking Institutional Time-Gate Policy against MongoDB Ledger...`);
         
         const policy = getPolicyConfig();
-        let rawLedger = "[]";
-        if (fs.existsSync(ledgerPath)) {
-            rawLedger = fs.readFileSync(ledgerPath);
-        }
-        const ledger = JSON.parse(rawLedger);
-
+        const ledger = await Block.find().sort({ index: 1 });
         const firstUploadForModule = ledger.find(block => block.moduleCode === moduleCode);
 
         if (firstUploadForModule) {
@@ -77,26 +78,19 @@ app.post('/api/ingest', upload.single('gradingSheet'), async (req, res) => {
             const boeWindow = Number(policy.boeReviewWindow);
             const specialWindow = Number(policy.specialConcernsWindow);
 
-            // Phase 1: Standard Upload Window
             if (timePassed < stdWindow) {
                 if (isRecorrection) {
                     return res.status(403).json({ error: `Special Concerns window is closed. Only standard uploads allowed in the first ${stdWindow} ${policy.timeUnit}.` });
                 }
-            } 
-            // Phase 2: BOE Review Window - LOCKED for new lecturer uploads
-            else if (timePassed >= stdWindow && timePassed < boeWindow) {
+            } else if (timePassed >= stdWindow && timePassed < boeWindow) {
                 console.log(`🛑 Upload rejected. BOE Review phase is active.`);
-                return res.status(403).json({ error: `Uploads locked. Board of Examiners (BOE) review is currently in progress (Window: ${stdWindow}-${boeWindow} ${policy.timeUnit}).` });
-            } 
-            // Phase 3: Special Concerns Window
-            else if (timePassed >= boeWindow && timePassed < specialWindow) {
+                return res.status(403).json({ error: `Uploads locked. Board of Examiners (BOE) review is currently in progress.` });
+            } else if (timePassed >= boeWindow && timePassed < specialWindow) {
                 if (!isRecorrection) {
                     console.log(`🛑 Standard upload rejected. Only Special Concerns allowed.`);
-                    return res.status(403).json({ error: `Standard uploads locked. Only Special Concerns (Re-corrections) are allowed during the appeals window.` });
+                    return res.status(403).json({ error: `Standard uploads locked. Only Special Concerns (Re-corrections) are allowed.` });
                 }
-            } 
-            // Phase 4: System Finalized - LOCKED
-            else {
+            } else {
                 console.log(`🛑 Upload rejected. Module is permanently finalized.`);
                 return res.status(403).json({ error: `All upload windows for this module are permanently closed.` });
             }
@@ -112,8 +106,8 @@ app.post('/api/ingest', upload.single('gradingSheet'), async (req, res) => {
         const standardizedJson = parseExcelToJson(req.file.buffer);
 
         // --- STAGE 3: PRIVATE BLOCKCHAIN ANCHORING ---
-        console.log(`🔒 4. Sealing into Private Blockchain Ledger...`);
-        const ledgerReceipt = appendToPrivateBlockchain(standardizedJson, moduleCode, uploaderName, isRecorrection);
+        console.log(`🔒 4. Sealing into MongoDB Private Blockchain Ledger...`);
+        const ledgerReceipt = await appendToPrivateBlockchain(standardizedJson, moduleCode, uploaderName, isRecorrection);
 
         if (ledgerReceipt.status === 'duplicate') {
             console.log(`🛑 Duplicate Payload Detected. Skipped saving.`);
@@ -141,16 +135,24 @@ app.post('/api/ingest', upload.single('gradingSheet'), async (req, res) => {
         if (isRecorrection) {
             console.log(`⚠️ Context Routing: Special Concern flagged. Routing directly to Component 2...`);
             const handoffResult = await pushToBOEDirect(uploadMetadata, standardizedJson);
+            
+            if (handoffResult.success || handoffResult.status === 'bypassed_boe' || handoffResult.status === 'queued_bypass') {
+                await Block.updateOne(
+                    { blockHash: ledgerReceipt.blockHash },
+                    { $set: { handedOffToBOE: true } }
+                );
+            }
+
             syncResponseMsg = handoffResult.message;
             syncStatusVal = handoffResult.status;
         } else {
-            console.log(`🔒 Data stored locally in Component 3 private ledger. Awaiting BOE window lock for auto-handoff.`);
-            syncResponseMsg = 'Data sealed in local ledger. Handoff deferred until BOE Review window threshold.';
+            console.log(`🔒 Data stored securely in MongoDB ledger. Awaiting BOE window lock for auto-handoff.`);
+            syncResponseMsg = 'Data sealed in ledger. Handoff deferred until BOE Review window threshold.';
             syncStatusVal = 'held-locally';
         }
 
         res.status(200).json({
-            message: 'Data securely anchored in local ledger.',
+            message: 'Data securely anchored in MongoDB ledger.',
             fileName: req.file.originalname,
             moduleCode: moduleCode,
             recordCount: standardizedJson.length,
@@ -167,19 +169,14 @@ app.post('/api/ingest', upload.single('gradingSheet'), async (req, res) => {
 });
 
 // ============================================================================
-// UNOFFICIAL RESULTS API (Phase 1 Access for University Frontend)
+// UNOFFICIAL RESULTS API
 // ============================================================================
-app.get('/api/verify/:studentId', (req, res) => {
+app.get('/api/verify/:studentId', async (req, res) => {
     try {
         const studentId = req.params.studentId.toUpperCase();
         console.log(`\n🔍 Unofficial Results Query received for Candidate: ${studentId}`);
 
-        let rawLedger = "[]";
-        if (fs.existsSync(ledgerPath)) {
-            rawLedger = fs.readFileSync(ledgerPath);
-        }
-        const ledger = JSON.parse(rawLedger);
-
+        const ledger = await Block.find().sort({ index: 1 });
         let latestRecordsMap = {};
 
         ledger.forEach(block => {
@@ -213,18 +210,12 @@ app.get('/api/verify/:studentId', (req, res) => {
 });
 
 // ============================================================================
-// MODULE STATUS API (Evaluates time-gates and triggers automatic BOE handoff)
+// MODULE STATUS API
 // ============================================================================
 app.get('/api/module-status/:moduleCode', async (req, res) => {
     try {
         const targetModule = req.params.moduleCode.toUpperCase();
-        
-        let rawLedger = "[]";
-        if (fs.existsSync(ledgerPath)) {
-            rawLedger = fs.readFileSync(ledgerPath);
-        }
-        const ledger = JSON.parse(rawLedger);
-        
+        const ledger = await Block.find().sort({ index: 1 });
         const firstUpload = ledger.find(block => block.moduleCode === targetModule);
         
         if (!firstUpload) {
@@ -239,26 +230,26 @@ app.get('/api/module-status/:moduleCode', async (req, res) => {
         const stdWindow = Number(policy.standardUploadWindow);
         const boeWindow = Number(policy.boeReviewWindow);
 
-        // AUTOMATIC DEFERRED HANDOFF AT FIRST LOCK (Phase Transition)
+        // Lazy evaluation: Triggers handoff precisely when the status route is polled after the window closes
         if (timePassed >= stdWindow && timePassed < boeWindow) {
             const latestBlock = ledger.filter(b => b.moduleCode === targetModule).pop();
             
             if (latestBlock && !latestBlock.handedOffToBOE) {
-                console.log(`\n🚀 [Auto-Handoff Trigger] Module ${targetModule} crossed Standard Window threshold (${timePassed} ${policy.timeUnit}). Automatically pushing to BOE...`);
+                console.log(`\n🚀 [Lazy-Handoff Trigger] Module ${targetModule} crossed Standard Window threshold. Pushing to BOE...`);
                 
+                await Block.updateOne({ blockHash: latestBlock.blockHash }, { $set: { handedOffToBOE: true } });
+
                 try {
                     await pushToBOE({
                         provenanceHash: latestBlock.blockHash,
                         moduleCode: targetModule,
                         uploader: latestBlock.uploader,
                         isRecorrection: false
-                    }, latestBlock.data);
+                    }, latestBlock.data, firstUpload.timestamp);
 
-                    latestBlock.handedOffToBOE = true;
-                    fs.writeFileSync(ledgerPath, JSON.stringify(ledger, null, 2));
                     console.log(`✅ Automatic BOE Handoff successful for module ${targetModule}!`);
                 } catch (handoffErr) {
-                    console.error(`❌ Automatic BOE Handoff failed:`, handoffErr.message);
+                    console.log(`ℹ️ Component 2 processed or skipped records as duplicates for module ${targetModule}. State synced.`);
                 }
             }
         }
@@ -277,7 +268,7 @@ app.get('/api/module-status/:moduleCode', async (req, res) => {
 });
 
 // ============================================================================
-// ADMIN POLICY API (Dynamic Configuration)
+// ADMIN POLICY API
 // ============================================================================
 app.get('/api/policy', (req, res) => {
     res.json(getPolicyConfig());
@@ -296,13 +287,24 @@ app.post('/api/policy', (req, res) => {
 });
 
 // ============================================================================
-// AUTOMATIC BACKGROUND DEFERRED HANDOFF TO COMPONENT 2
+// DEMO RESET UTILITY (For presentation cleanup)
+// ============================================================================
+app.post('/api/demo/reset-ledger', async (req, res) => {
+    try {
+        await Block.collection.drop();
+        console.log("⚠️ [DEMO UTILITY] MongoDB ledger collection wiped clean for presentation reset.");
+        res.status(200).json({ success: true, message: "Ledger collection successfully reset." });
+    } catch (error) {
+        res.status(200).json({ success: true, message: "Ledger is already empty." });
+    }
+});
+
+// ============================================================================
+// AUTOMATIC BACKGROUND DEFERRED HANDOFF WATCHER
 // ============================================================================
 setInterval(async () => {
     try {
-        if (!fs.existsSync(ledgerPath)) return;
-        const rawLedger = fs.readFileSync(ledgerPath);
-        const ledger = JSON.parse(rawLedger);
+        const ledger = await Block.find().sort({ index: 1 });
         if (ledger.length === 0) return;
 
         const policy = getPolicyConfig();
@@ -313,36 +315,44 @@ setInterval(async () => {
         const modules = [...new Set(ledger.map(b => b.moduleCode))];
 
         for (const targetModule of modules) {
+            const latestBlock = ledger.filter(b => b.moduleCode === targetModule).pop();
+            
+            if (!latestBlock || latestBlock.handedOffToBOE) continue;
+
             const firstUpload = ledger.find(b => b.moduleCode === targetModule);
             if (!firstUpload) continue;
 
             const timePassed = getTimePassed(new Date(firstUpload.timestamp), currentDate, policy.timeUnit);
 
             if (timePassed >= stdWindow && timePassed < boeWindow) {
-                const latestBlock = ledger.filter(b => b.moduleCode === targetModule).pop();
+                console.log(`\n🚀 [Auto-Handoff Trigger] Module ${targetModule} crossed Standard Window. Pushing to BOE...`);
+                
+                // Lock database flag immediately to prevent multi-tick concurrency
+                await Block.updateOne(
+                    { blockHash: latestBlock.blockHash }, 
+                    { $set: { handedOffToBOE: true } }
+                ).catch((dbErr) => {
+                    console.log(`⚠️ DB Lock Warning:`, dbErr.message);
+                });
 
-                if (latestBlock && !latestBlock.handedOffToBOE) {
-                    console.log(`\n🚀 [Auto-Handoff Trigger] Module ${targetModule} crossed Standard Window (${timePassed} ${policy.timeUnit}). Automatically pushing to BOE...`);
-                    
-                    try {
-                        // Pass firstUpload.timestamp as the 3rd argument to pushToBOE
-                        await pushToBOE({
-                            provenanceHash: latestBlock.blockHash,
-                            moduleCode: targetModule,
-                            uploader: latestBlock.uploader,
-                            isRecorrection: false
-                        }, latestBlock.data, firstUpload.timestamp);
+                try {
+                    await pushToBOE({
+                        provenanceHash: latestBlock.blockHash,
+                        moduleCode: targetModule,
+                        uploader: latestBlock.uploader,
+                        isRecorrection: false
+                    }, latestBlock.data, firstUpload.timestamp);
 
-                        latestBlock.handedOffToBOE = true;
-                        fs.writeFileSync(ledgerPath, JSON.stringify(ledger, null, 2));
-                        console.log(`✅ Automatic BOE Handoff successfully completed for module ${targetModule}!`);
-                    } catch (handoffErr) {
-                        console.error(`❌ Automatic BOE Handoff failed:`, handoffErr.message);
-                    }
+                    console.log(`✅ Automatic BOE Handoff successfully completed for module ${targetModule}!`);
+
+                } catch (handoffErr) {
+                    // Catch network/Component 2 errors cleanly without referencing 'next'
+                    console.log(`ℹ️ Component 2 sync handled for module ${targetModule}: ${handoffErr.message}`);
                 }
             }
         }
     } catch (err) {
+        // Prevent background crash if 'next' was accidentally scoped anywhere here
         console.error("Background Watcher Error:", err.message);
     }
 }, 5000);

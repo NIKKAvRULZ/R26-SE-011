@@ -1,0 +1,23 @@
+[
+  {
+    "candidateId": "IT001",
+    "marks": 85,
+    "grade": "A",
+    "version": 2,
+    "hash": "6c4d8c53b8d4xxxxxxxxxxxxxxxxxxxxxxxx"
+  },
+  {
+    "candidateId": "IT002",
+    "marks": 72,
+    "grade": "B",
+    "version": 1,
+    "hash": "4c9f9f4ddxxxxxxxxxxxxxxxxxxxxxxxx"
+  },
+  {
+    "candidateId": "IT003",
+    "marks": 91,
+    "grade": "A+",
+    "version": 3,
+    "hash": "e17afxxxxxxxxxxxxxxxxxxxxxxxx"
+  }
+]

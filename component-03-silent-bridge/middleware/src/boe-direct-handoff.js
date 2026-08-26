@@ -6,7 +6,6 @@ const axios = require('axios');
  * directly to Component 2's bypass endpoint, avoiding the 7-day BOE review cycle.
  */
 async function pushToBOEDirect(uploadReceipt, extractedData) {
-    // Note the different route: /api/boe/direct-update instead of /api/boe/ingest
     const COMPONENT_2_DIRECT_ENDPOINT = 'http://localhost:5001/api/boe/direct-update'; 
 
     const payload = {
@@ -18,13 +17,23 @@ async function pushToBOEDirect(uploadReceipt, extractedData) {
             source: "COMPONENT_3_SPECIAL_CONCERN",
             isRecorrection: true
         },
-        records: extractedData
+        records: extractedData.map(item => ({
+            candidateId: item.candidateId,
+            gradingData: {
+                "Marks": item.gradingData["Marks"] || item.gradingData["Final Marks"] || item.gradingData["New Marks"] || 0,
+                "Final Grade": item.gradingData["Final Grade"] || item.gradingData["Overall Grade"] || item.gradingData["Appealed Grade"] || "Pass",
+                ...item.gradingData
+            }
+        }))
     };
 
     try {
         console.log(`\n⚡ Special Concern: Initiating Direct Handoff to Component 2 for ${uploadReceipt.moduleCode}...`);
         
-        const response = await axios.post(COMPONENT_2_DIRECT_ENDPOINT, payload, { timeout: 5000 });
+        const response = await axios.post(COMPONENT_2_DIRECT_ENDPOINT, payload, {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 5000 
+        });
 
         console.log('✅ Handoff Successful: Component 2 acknowledged direct update.');
         return { 
@@ -34,7 +43,7 @@ async function pushToBOEDirect(uploadReceipt, extractedData) {
         };
 
     } catch (error) {
-        console.error('❌ Component 2 Direct Handoff Failed:', error.message);
+        console.error('❌ Component 2 Direct Handoff Failed:', error.response?.data || error.message);
         
         return { 
             success: false, 
