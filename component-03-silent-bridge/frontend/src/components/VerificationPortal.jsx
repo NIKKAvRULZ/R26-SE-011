@@ -1,8 +1,10 @@
+// frontend/src/components/VerificationPortal.jsx
 import React, { useState } from 'react';
 import axios from 'axios';
 import './VerificationPortal.css';
-// Ensure this path is correct based on your project structure
 import moduleConfig from '../../../middleware/module-config.json';
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
 const GRADE_POINTS = {
   'A+': 4.0, 'A': 4.0, 'A-': 3.7, 'B+': 3.3, 'B': 3.0, 'B-': 2.7,
@@ -10,7 +12,7 @@ const GRADE_POINTS = {
 };
 
 export default function VerificationPortal() {
-  const [mode, setMode] = useState('transcript'); // 'transcript' or 'single'
+  const [mode, setMode] = useState('transcript');
   const [studentId, setStudentId] = useState('');
   const [verifyModule, setVerifyModule] = useState('');
   const [verifyGrade, setVerifyGrade] = useState('');
@@ -26,7 +28,7 @@ export default function VerificationPortal() {
     setRecords([]);
 
     try {
-      const response = await axios.get(`http://localhost:5000/api/verify/${studentId}`);
+      const response = await axios.get(`${API_BASE}/api/verify/${studentId}`);
       const fetchedRecords = response.data.records;
 
       if (mode === 'transcript') {

@@ -4,6 +4,8 @@ import { useDropzone } from 'react-dropzone';
 import axios from 'axios';
 import './LecturerPortal.css';
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+
 const LecturerPortal = ({ user }) => {
     const [isRecorrection, setIsRecorrection] = useState(false);
     const [selectedFile, setSelectedFile] = useState(null);
@@ -16,15 +18,14 @@ const LecturerPortal = ({ user }) => {
     const [currentTime, setCurrentTime] = useState(new Date());
     const [dbTimestamp, setDbTimestamp] = useState(null);
 
-    // 🚨 FIXED: Fetch System Policy with cache-buster to reflect Admin changes instantly
     useEffect(() => {
         const fetchPolicyAndStatus = async () => {
             try {
-                const policyRes = await axios.get(`http://localhost:5000/api/policy?t=${Date.now()}`);
+                const policyRes = await axios.get(`${API_BASE}/api/policy?t=${Date.now()}`);
                 setActivePolicy(policyRes.data);
 
                 if (moduleCode.trim().length > 2) {
-                    const statusRes = await axios.get(`http://localhost:5000/api/module-status/${moduleCode.trim()}`);
+                    const statusRes = await axios.get(`${API_BASE}/api/module-status/${moduleCode.trim()}`);
                     setDbTimestamp(statusRes.data.isNew ? null : statusRes.data.firstUploadTime);
                 } else {
                     setDbTimestamp(null);
@@ -37,7 +38,6 @@ const LecturerPortal = ({ user }) => {
         fetchPolicyAndStatus();
     }, [moduleCode]);
 
-    // Ticking Live Clock
     useEffect(() => {
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
         return () => clearInterval(timer);
@@ -73,7 +73,7 @@ const LecturerPortal = ({ user }) => {
         formData.append('isRecorrection', isRecorrection);
 
         try {
-            const response = await axios.post('http://localhost:5000/api/ingest', formData, {
+            const response = await axios.post(`${API_BASE}/api/ingest`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
             setUploadStatus('success');
@@ -91,7 +91,6 @@ const LecturerPortal = ({ user }) => {
         }
     };
 
-    // Smart Status Renderer
     const renderModuleStatus = () => {
         if (!activePolicy) return null;
 
@@ -118,7 +117,6 @@ const LecturerPortal = ({ user }) => {
             );
         }
 
-        // Calculate Phases for Existing Module
         const startDate = new Date(dbTimestamp);
         
         const addTime = (baseDate, amount, unit) => {
@@ -138,25 +136,25 @@ const LecturerPortal = ({ user }) => {
 
         if (currentTime < phase1End) {
             currentPhase = "Standard Entry (Open)";
-            statusColor = "var(--accent-main)"; // Green
+            statusColor = "var(--accent-main)";
             statusIcon = "✅";
             nextActionText = "Locks for BOE Review at:";
             nextActionTime = phase1End;
         } else if (currentTime >= phase1End && currentTime < phase2End) {
             currentPhase = "BOE Review (Locked)";
-            statusColor = "var(--warning)"; // Yellow
+            statusColor = "var(--warning)";
             statusIcon = "🔒";
             nextActionText = "Unlocks for Special Concerns at:";
             nextActionTime = phase2End;
         } else if (currentTime >= phase2End && currentTime < phase3End) {
             currentPhase = "Special Concerns (Appeals Open)";
-            statusColor = "#3b82f6"; // Blue
+            statusColor = "#3b82f6";
             statusIcon = "📝";
             nextActionText = "Permanently Locks at:";
             nextActionTime = phase3End;
         } else {
             currentPhase = "Permanently Locked (Finalized)";
-            statusColor = "var(--error)"; // Red
+            statusColor = "var(--error)";
             statusIcon = "🛑";
             nextActionText = "Module Finalized on:";
             nextActionTime = phase3End;
@@ -189,7 +187,6 @@ const LecturerPortal = ({ user }) => {
                     </p>
                 </div>
 
-                {/* Dynamic Single-Module Status Banner */}
                 <div className="policy-banner" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                         <h4 style={{ color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem' }}>

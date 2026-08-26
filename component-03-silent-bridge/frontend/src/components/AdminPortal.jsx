@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './AdminPortal.css';
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+
 export default function AdminPortal() {
     const [policy, setPolicy] = useState({
         timeUnit: 'days',
@@ -12,9 +14,8 @@ export default function AdminPortal() {
     });
     const [status, setStatus] = useState('');
 
-    // Fetch current policy when component loads
     useEffect(() => {
-        axios.get('http://localhost:5000/api/policy')
+        axios.get(`${API_BASE}/api/policy`)
             .then(res => setPolicy(res.data))
             .catch(err => console.error("Could not load policy", err));
     }, []);
@@ -27,9 +28,9 @@ export default function AdminPortal() {
         e.preventDefault();
         setStatus('saving');
         try {
-            await axios.post('http://localhost:5000/api/policy', policy);
+            await axios.post(`${API_BASE}/api/policy`, policy);
             setStatus('success');
-            setTimeout(() => setStatus(''), 3000); // Clear success message after 3 seconds
+            setTimeout(() => setStatus(''), 3000);
         } catch (error) {
             setStatus('error');
         }
