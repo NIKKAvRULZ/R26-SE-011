@@ -23,12 +23,12 @@ blockSchema.pre(['updateOne', 'findOneAndUpdate', 'updateMany'], function() {
   const alteringCoreData = modifiedFields.some(field => field !== 'handedOffToBOE');
   
   if (alteringCoreData) {
-    throw new Error("SECURITY ALERT: Private ledger is append-only. Historical block modification is strictly prohibited.");
+    throw new Error("SECURITY ALERT: Private ledger is append-only. Historical block modification is strictly prohibited[cite: 18].");
   }
 });
 
 blockSchema.pre(['deleteOne', 'findOneAndDelete', 'deleteMany'], function() {
-  throw new Error("SECURITY ALERT: Ledger blocks are immutable. Deletion is strictly prohibited.");
+  throw new Error("SECURITY ALERT: Ledger blocks are immutable. Deletion is strictly prohibited[cite: 18].");
 });
 
 const Block = mongoose.model("Block", blockSchema);

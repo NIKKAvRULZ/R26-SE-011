@@ -6,9 +6,7 @@ const axios = require('axios');
  * directly to Component 2's bypass endpoint, avoiding the 7-day BOE review cycle.
  */
 async function pushToBOEDirect(uploadReceipt, extractedData) {
-    // Allows setting a base URL via environment variable, appending the direct update route
-    const baseUrl = process.env.COMPONENT_2_URL || 'http://localhost:5001';
-    const COMPONENT_2_DIRECT_ENDPOINT = `${baseUrl.replace(/\/$/, '')}/api/boe/direct-update`;
+    const COMPONENT_2_DIRECT_ENDPOINT = 'http://localhost:5001/api/boe/direct-update'; 
 
     const payload = {
         metadata: {
