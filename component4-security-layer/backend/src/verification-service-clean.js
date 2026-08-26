@@ -534,6 +534,26 @@ function createVerificationService(options = {}) {
     };
   }
 
+  async function listCandidateProofContexts(candidateId) {
+    const candidate = canonicalizeIdentifier(candidateId);
+    const payload = await fetchJson(`${dataBaseUrl}/records/${encodeURIComponent(candidate)}`);
+    const contexts = payload?.records || payload?.proofs || payload?.contexts;
+    if (!payload?.success || !Array.isArray(contexts)) {
+      const error = new Error('Component 1 returned an invalid candidate proof-context response');
+      error.status = 502;
+      throw error;
+    }
+
+    return contexts.map((context) => ({
+      candidateId: candidate,
+      moduleCode: canonicalizeIdentifier(context.moduleCode),
+      version: context.version,
+      merkleRoot: normalizeMerkleRoot(context.merkleRoot),
+      ipfsCID: String(context.ipfsCID || '').trim(),
+      anchoredAt: context.anchoredAt || null,
+    }));
+  }
+
   async function getOfficialVerificationDataset() {
     const source = await readVerificationSource();
     if (!source.merkleRoot) {
@@ -1010,7 +1030,11 @@ function createVerificationService(options = {}) {
     // Component 1's leaf commits to marks and version as well as the claim.
     // Component 4 validates that official leaf locally, then compares only the
     // employer-supplied grade; raw official values never leave this backend.
-    const usesComponent1MerkleContract = Array.isArray(officialProof?.proof) && officialProof.proof.some((step) => Object.prototype.hasOwnProperty.call(step, 'hash'));
+    // A single-record Component 1 dataset has an empty Merkle proof, so proof
+    // step shape alone cannot identify its five-field leaf contract.
+    const usesComponent1MerkleContract =
+      (officialRecord?.marks !== undefined && officialRecord?.version !== undefined) ||
+      (Array.isArray(officialProof?.proof) && officialProof.proof.some((step) => Object.prototype.hasOwnProperty.call(step, 'hash')));
     const officialLeafValid = usesComponent1MerkleContract
       ? officialHash === normalizeMerkleRoot(component1LeafHash(officialRecord))
       : officialHash === normalizeMerkleRoot(sha256Hex(canonicalRecordString({ candidateId: normalizedCandidateId, moduleCode: normalizedModuleCode, grade: normalizedClaimedGrade })));
@@ -1122,6 +1146,79 @@ function createVerificationService(options = {}) {
     if (!session || !normalizedCandidateId) return failure('Invalid verification request');
 
     try {
+      let historicalContexts = null;
+      try {
+        historicalContexts = await listCandidateProofContexts(normalizedCandidateId);
+      } catch (error) {
+        if (error.status !== 404) throw error;
+      }
+
+      if (historicalContexts) {
+        if (historicalContexts.length === 0) return failure('Candidate not found');
+        if (historicalContexts.some((context) => !context.moduleCode || !context.merkleRoot || !context.ipfsCID)) {
+          return failure('Invalid historical proof context');
+        }
+
+        const datasetCache = new Map();
+        async function loadVerifiedContextDataset(context) {
+          const cacheKey = `${context.merkleRoot}|${context.ipfsCID}`;
+          if (!datasetCache.has(cacheKey)) {
+            datasetCache.set(cacheKey, (async () => {
+              const anchor = await fetchAnchoredMetadata(context.merkleRoot);
+              const anchorRoot = normalizeMerkleRoot(anchor?.merkleRoot);
+              if (!anchor?.success || anchorRoot !== context.merkleRoot || anchor.ipfsCID !== context.ipfsCID) {
+                throw new Error('Historical blockchain anchor mismatch');
+              }
+
+              const dataset = await fetchFinalizedDataset(context.merkleRoot);
+              const datasetRoot = normalizeMerkleRoot(dataset?.data?.merkleRoot || '');
+              const datasetAnchorRoot = normalizeMerkleRoot(dataset?.verificationSource?.blockchain?.merkleRoot || '');
+              const datasetCid = dataset?.verificationSource?.blockchain?.ipfsCID || dataset?.data?.ipfsCID || null;
+              const records = Array.isArray(dataset?.data?.recordsWithHashes) ? dataset.data.recordsWithHashes : [];
+              if (datasetRoot !== anchorRoot || datasetAnchorRoot !== anchorRoot || datasetCid !== context.ipfsCID || records.length === 0) {
+                throw new Error('Historical finalized dataset mismatch');
+              }
+              return { root: anchorRoot, records };
+            })());
+          }
+          return datasetCache.get(cacheKey);
+        }
+
+        const verifiedContexts = new Set();
+        for (const context of historicalContexts) {
+          const contextKey = `${context.moduleCode}|${context.version ?? ''}|${context.merkleRoot}|${context.ipfsCID}`;
+          if (verifiedContexts.has(contextKey)) continue;
+          verifiedContexts.add(contextKey);
+
+          const verifiedDataset = await loadVerifiedContextDataset(context);
+          const allHashes = verifiedDataset.records.map((record) => normalizeMerkleRoot(record.hash));
+          const recordIndex = verifiedDataset.records.findIndex((record) =>
+            canonicalizeIdentifier(record.candidateId) === normalizedCandidateId &&
+            canonicalizeIdentifier(record.moduleCode) === context.moduleCode &&
+            (context.version == null || context.version === '' || String(record.version) === String(context.version))
+          );
+          if (recordIndex < 0) return failure('Historical record not found in finalized dataset');
+
+          const record = verifiedDataset.records[recordIndex];
+          const hash = normalizeMerkleRoot(record.hash);
+          const canonicalHash = normalizeMerkleRoot(component1LeafHash(record));
+          const proof = component1MerkleProof(allHashes, recordIndex);
+          if (hash !== canonicalHash || !verifyComponent1MerkleProof(hash, proof, verifiedDataset.root)) {
+            return failure('Historical transcript integrity mismatch');
+          }
+        }
+
+        const result = { success: true, status: 200, valid: true, result: 'VALID' };
+        try {
+          await recordVerificationAttempt({ session, candidateId: normalizedCandidateId, moduleCode: 'FULL_TRANSCRIPT', claimedGrade: 'NOT_DISCLOSED', result });
+        } catch (error) {
+          console.error('Unable to persist Component 4 transcript history:', error.message);
+        }
+        return result;
+      }
+
+      // Backward compatibility for Component 1 deployments that have not yet
+      // implemented the historical candidate-context endpoint.
       const source = await readVerificationSource();
       if (!source.merkleRoot || !source.ipfsCID) return failure('Finalized anchor unavailable');
       const anchor = await fetchAnchoredMetadata(source.merkleRoot);
@@ -1152,7 +1249,13 @@ function createVerificationService(options = {}) {
       });
 
       const result = { success: valid, status: 200, valid, result: valid ? 'VALID' : 'INVALID' };
-      await recordVerificationAttempt({ session, candidateId: normalizedCandidateId, moduleCode: 'FULL_TRANSCRIPT', claimedGrade: 'NOT_DISCLOSED', result });
+      try {
+        await recordVerificationAttempt({ session, candidateId: normalizedCandidateId, moduleCode: 'FULL_TRANSCRIPT', claimedGrade: 'NOT_DISCLOSED', result });
+      } catch (error) {
+        // Audit persistence is operational evidence, not an academic input.
+        // A temporary audit-store outage must not change a valid transcript.
+        console.error('Unable to persist Component 4 transcript history:', error.message);
+      }
       return result;
     } catch (_error) {
       return failure('Transcript verification unavailable');

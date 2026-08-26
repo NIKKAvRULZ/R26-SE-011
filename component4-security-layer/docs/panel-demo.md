@@ -10,12 +10,16 @@ running. The Component 4 `.env` must contain:
 
 ```text
 ACADEMIC_DATA_BASE_URL=http://localhost:5002/proof
+RPC_URL=http://127.0.0.1:8545
 REQUIRE_GRADE_ZKP=true
+PANEL_CANDIDATE_ID=<current-finalized-candidate>
+PANEL_MODULE_CODE=<current-finalized-module>
+PANEL_VALID_GRADE=<current-finalized-grade>
 ```
 
-On a fresh local Hardhat chain, deploy Component 1's existing
-`ProofStorage` contract and anchor the finalized root before starting the
-servers. A persistent testnet/deployed chain is recommended for a permanent
+Component 1 owns `ProofStorage`, IPFS publication, and dataset anchoring.
+Component 4 reads the current anchor and never creates or re-anchors academic
+data. A persistent testnet/deployed chain is recommended for a permanent
 demonstration environment.
 
 ## Run the evidence test
@@ -36,7 +40,8 @@ the employer API.
 
 ## Research claims demonstrated
 
-- Completeness: the official `TEST003 / SE3040 / A-` claim verifies.
+- Completeness: the current finalized Component 1 claim configured through the
+  `PANEL_*` variables verifies.
 - Soundness/integrity: changing the grade fails hash and claim-bound ZKP checks.
 - Root binding: changing the finalized root invalidates the proof.
 - Dataset authenticity: a blockchain/IPFS CID or root mismatch fails closed.

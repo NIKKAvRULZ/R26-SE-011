@@ -65,6 +65,71 @@ test('correct claim is VALID using the Component 1 anchor chain', async () => {
   assert.deepEqual(result.checks, { recordFound: true, blockchainAnchorValid: true, ipfsDatasetValid: true, hashMatch: true, merkleProofValid: true, zkpValid: true });
 });
 
+test('single-record Component 1 dataset uses the five-field leaf hash with an empty proof', async () => {
+  const record = { candidateId: 'IT22111210', moduleCode: 'SE4010', marks: 55, grade: 'B', version: 1 };
+  const hash = sha256Hex([record.candidateId, record.moduleCode, record.marks, record.grade, record.version].join('|'));
+  const fetchImpl = async (url, options = {}) => {
+    const response = (status, body) => ({ ok: status >= 200 && status < 300, status, async json() { return body; } });
+    if (url.includes('/record/')) return response(200, { success: true, record: { ...record, merkleRoot: `0x${hash}`, ipfsCID: CID } });
+    if (url.endsWith(`/${hash}`)) return response(200, { success: true, merkleRoot: `0x${hash}`, ipfsCID: CID });
+    if (url.endsWith(`/${hash}/data`)) return response(200, {
+      verificationSource: { blockchain: { merkleRoot: `0x${hash}`, ipfsCID: CID } },
+      data: { merkleRoot: `0x${hash}`, ipfsCID: CID, recordsWithHashes: [{ ...record, hash }] },
+    });
+    if (url.endsWith('/merkle-proof')) {
+      const claim = JSON.parse(options.body);
+      assert.deepEqual({ candidateId: claim.candidateId, moduleCode: claim.moduleCode }, { candidateId: record.candidateId, moduleCode: record.moduleCode });
+      return response(200, { success: true, merkleRoot: `0x${hash}`, record: { ...record, hash }, proof: [], proofVerified: true });
+    }
+    throw new Error(`Unexpected Component 1 URL: ${url}`);
+  };
+  const component1Service = createVerificationService({
+    dataBaseUrl: 'http://component1/proof',
+    fetchImpl,
+    authenticateTokenImpl: async () => ({ userId: 'u1', userEmail: 'verifier@example.edu', companyId: 'EMP', role: 'verifier' }),
+  });
+
+  const result = await component1Service.verifyGradeRequest({ ...record, claimedGrade: record.grade, sessionToken: 'authorized' });
+  assert.equal(result.result, 'VALID');
+  assert.equal(result.checks.hashMatch, true);
+  assert.equal(result.checks.merkleProofValid, true);
+});
+
+test('full transcript verifies a candidate across historical Component 1 anchors', async () => {
+  const records = [
+    { candidateId: 'IT22061348', moduleCode: 'SE4010', marks: 80, grade: 'A+', version: 1 },
+    { candidateId: 'IT22061348', moduleCode: 'CS3013', marks: 42, grade: 'A-', version: 1 },
+  ].map((record) => ({ ...record, hash: sha256Hex([record.candidateId, record.moduleCode, record.marks, record.grade, record.version].join('|')) }));
+  const contexts = records.map((record, index) => ({
+    moduleCode: record.moduleCode,
+    version: record.version,
+    merkleRoot: `0x${record.hash}`,
+    ipfsCID: `${CID}${index}`,
+  }));
+  const fetchImpl = async (url) => {
+    const response = (status, body) => ({ ok: status >= 200 && status < 300, status, async json() { return body; } });
+    if (url.endsWith('/records/IT22061348')) return response(200, { success: true, records: contexts });
+    for (let index = 0; index < records.length; index += 1) {
+      const record = records[index];
+      const context = contexts[index];
+      if (url.endsWith(`/${record.hash}`)) return response(200, { success: true, merkleRoot: context.merkleRoot, ipfsCID: context.ipfsCID });
+      if (url.endsWith(`/${record.hash}/data`)) return response(200, {
+        verificationSource: { blockchain: { merkleRoot: context.merkleRoot, ipfsCID: context.ipfsCID } },
+        data: { merkleRoot: context.merkleRoot, ipfsCID: context.ipfsCID, recordsWithHashes: [record] },
+      });
+    }
+    throw new Error(`Unexpected Component 1 URL: ${url}`);
+  };
+  const component1Service = createVerificationService({
+    dataBaseUrl: 'http://component1/proof',
+    fetchImpl,
+    authenticateTokenImpl: async () => ({ userId: 'u1', userEmail: 'verifier@example.edu', companyId: 'EMP', role: 'verifier' }),
+  });
+
+  const result = await component1Service.verifyTranscriptRequest({ candidateId: 'IT22061348', sessionToken: 'authorized' });
+  assert.equal(result.result, 'VALID');
+});
+
 test('wrong claimed grade is INVALID without sending grade to lookup', async () => {
   const result = await verify({ claimedGrade: 'B' });
   assert.equal(result.result, 'INVALID');

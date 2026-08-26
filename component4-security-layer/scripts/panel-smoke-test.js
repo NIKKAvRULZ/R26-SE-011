@@ -3,12 +3,16 @@
 require('dotenv').config({ path: require('node:path').resolve(__dirname, '..', 'backend', '.env') });
 const { createVerificationService } = require('../backend/src/verification-service-clean');
 
-const candidateId = process.env.PANEL_CANDIDATE_ID || 'TEST003';
-const moduleCode = process.env.PANEL_MODULE_CODE || 'SE3040';
-const validGrade = process.env.PANEL_VALID_GRADE || 'A-';
+const candidateId = process.env.PANEL_CANDIDATE_ID;
+const moduleCode = process.env.PANEL_MODULE_CODE;
+const validGrade = process.env.PANEL_VALID_GRADE;
 
 async function main() {
-  const baseUrl = (process.env.ACADEMIC_DATA_BASE_URL || 'http://localhost:5002/proof').replace(/\/$/, '');
+  if (!candidateId || !moduleCode || !validGrade) {
+    throw new Error('Set PANEL_CANDIDATE_ID, PANEL_MODULE_CODE, and PANEL_VALID_GRADE to a current finalized Component 1 record');
+  }
+  const baseUrl = String(process.env.ACADEMIC_DATA_BASE_URL || '').replace(/\/$/, '');
+  if (!baseUrl) throw new Error('ACADEMIC_DATA_BASE_URL is required');
   const service = createVerificationService({
     dataBaseUrl: baseUrl,
     authenticateTokenImpl: async () => ({ userId: 'panel-smoke-test', userEmail: 'panel@test.local', companyId: 'PANEL', role: 'verifier' }),
