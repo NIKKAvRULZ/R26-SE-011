@@ -5,7 +5,7 @@ import axios from 'axios';
 import AuditTrailViewer from './AuditTrailViewer';
 import './LecturerPortal.css';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 // 🛡️ Helper Component that automatically pings sync state so it turns green automatically if Component 2 is up
 function AutoSyncBanner({ receipt, API_BASE }) {
