@@ -1,13 +1,449 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>grading-dapp</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decentralized Academic Grading & Audit Platform | Master Demo Hub</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #060911;
+            --bg-secondary: #0d1322;
+            --bg-card: rgba(17, 24, 39, 0.7);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --border-hover: rgba(56, 189, 248, 0.4);
+            --accent-primary: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.18);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --purple: #8b5cf6;
+            --font-mono: 'Fira Code', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 3rem 1.5rem;
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(59, 130, 246, 0.08) 0%, transparent 45%),
+                radial-gradient(circle at 85% 85%, rgba(139, 92, 246, 0.06) 0%, transparent 45%);
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1100px;
+            width: 100%;
+        }
+
+        /* Top Brand Header */
+        header {
+            text-align: center;
+            margin-bottom: 3.5rem;
+            position: relative;
+        }
+
+        .system-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            padding: 0.35rem 0.85rem;
+            background: rgba(59, 130, 246, 0.1);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.25);
+            border-radius: 20px;
+            margin-bottom: 1rem;
+        }
+
+        .pulse-dot {
+            width: 7px;
+            height: 7px;
+            background-color: var(--success);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.2); opacity: 1; box-shadow: 0 0 12px var(--success); }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+
+        header h1 {
+            font-size: 2.75rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            margin-bottom: 0.75rem;
+            background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 50%, #94a3b8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        header p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            max-width: 700px;
+            margin: 0 auto;
+            line-height: 1.5;
+        }
+
+        /* Component Showcase Grid */
+        .section-title {
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            margin-bottom: 1.25rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 3.5rem;
+        }
+
+        @media (max-width: 850px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        .card:hover {
+            border-color: var(--border-hover);
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px -15px rgba(56, 189, 248, 0.15);
+            background: rgba(17, 24, 39, 0.85);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 1.25rem;
+        }
+
+        .card-icon {
+            font-size: 2rem;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .component-tag {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            padding: 0.3rem 0.65rem;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+            letter-spacing: 0.05em;
+        }
+
+        .card h3 {
+            font-size: 1.35rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+            color: var(--text-primary);
+        }
+
+        .card p {
+            color: var(--text-secondary);
+            font-size: 0.925rem;
+            line-height: 1.6;
+            margin-bottom: 1.75rem;
+        }
+
+        .tech-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-bottom: 1.75rem;
+        }
+
+        .tech-tag {
+            font-size: 0.75rem;
+            font-family: var(--font-mono);
+            padding: 0.2rem 0.5rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 4px;
+            color: var(--text-muted);
+        }
+
+        .card-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            padding: 0.75rem 1.5rem;
+            border-radius: 10px;
+            transition: all 0.2s ease;
+            flex: 1;
+        }
+
+        .btn:hover {
+            background: #38bdf8;
+            box-shadow: 0 4px 15px rgba(56, 189, 248, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .port-info {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.75rem 1rem;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+        }
+
+        /* Architecture & Research Summary Section */
+        .architecture-box {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            padding: 2.5rem;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+        }
+
+        .architecture-box h2 {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: var(--text-primary);
+        }
+
+        .arch-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 900px) {
+            .arch-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .arch-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+        }
+
+        .arch-card h4 {
+            font-size: 1.05rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #38bdf8;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .arch-card p {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            line-height: 1.6;
+        }
+
+        footer {
+            margin-top: 3.5rem;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-family: var(--font-mono);
+            border-top: 1px solid var(--border-color);
+            padding-top: 2rem;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="system-badge">
+                <span class="pulse-dot"></span>
+                System Operational • All Services Connected
+            </div>
+            <h1>Decentralized Academic Grading Platform</h1>
+            <p>Comprehensive Design and Analysis Research Project — Central Demonstration Hub for End-to-End Workflow Validation</p>
+        </header>
+
+        <!-- Components Grid -->
+        <div class="section-title">⚡ System Components & Portals</div>
+        <div class="grid">
+            
+            <!-- Component 3: Silent Bridge -->
+            <div class="card">
+                <div>
+                    <div class="card-header">
+                        <span class="card-icon">📥</span>
+                        <span class="component-tag">COMPONENT 3</span>
+                    </div>
+                    <h3>Silent Bridge & Lecturer Portal</h3>
+                    <p>Schema-agnostic Excel/CSV ingestion engine featuring automated PII masking, SHA-256 private ledger chaining, duplicate prevention, and dynamic institutional time-gates.</p>
+                    <div class="tech-tags">
+                        <span class="tech-tag">Node.js</span>
+                        <span class="tech-tag">Express</span>
+                        <span class="tech-tag">SheetJS</span>
+                        <span class="tech-tag">React</span>
+                    </div>
+                </div>
+                <div class="card-actions">
+                    <a href="http://localhost:5173/" target="_blank" class="btn">Launch Portal ↗</a>
+                    <div class="port-info">:5173</div>
+                </div>
+            </div>
+
+            <!-- Component 2: BOE Layer -->
+            <div class="card">
+                <div>
+                    <div class="card-header">
+                        <span class="card-icon">🏛️</span>
+                        <span class="component-tag">COMPONENT 2</span>
+                    </div>
+                    <h3>Board of Examiners (BOE)</h3>
+                    <p>Governs review windows, automated timeout finalization, context-aware grade appeal overrides, and versioned internal audit trails prior to blockchain proof batching.</p>
+                    <div class="tech-tags">
+                        <span class="tech-tag">MongoDB</span>
+                        <span class="tech-tag">Mongoose</span>
+                        <span class="tech-tag">Cron Jobs</span>
+                        <span class="tech-tag">React</span>
+                    </div>
+                </div>
+                <div class="card-actions">
+                    <a href="http://localhost:3000/login" target="_blank" class="btn">Launch Portal ↗</a>
+                    <div class="port-info">:3000</div>
+                </div>
+            </div>
+
+            <!-- Component 1: Core Ledger & IPFS -->
+            <div class="card">
+                <div>
+                    <div class="card-header">
+                        <span class="card-icon">🔗</span>
+                        <span class="component-tag">COMPONENT 1</span>
+                    </div>
+                    <h3>Core Ledger & Proof Layer</h3>
+                    <p>Compiles final institutional records into Merkle trees, stores immutable dataset bundles securely on IPFS via Pinata, and anchors the root cryptographic proofs on Ethereum[cite: 28].</p>
+                    <div class="tech-tags">
+                        <span class="tech-tag">Solidity</span>
+                        <span class="tech-tag">IPFS / Pinata</span>
+                        <span class="tech-tag">Merkle Trees</span>
+                        <span class="tech-tag">Web3</span>
+                    </div>
+                </div>
+                <div class="card-actions">
+                    <a href="http://localhost:5002" target="_blank" class="btn">Launch Ledger ↗</a>
+                    <div class="port-info">:5002</div>
+                </div>
+            </div>
+
+            <!-- Component 4: Student/Employer Portal -->
+            <div class="card">
+                <div>
+                    <div class="card-header">
+                        <span class="card-icon">🎓</span>
+                        <span class="component-tag">COMPONENT 4</span>
+                    </div>
+                    <h3>Student & Corporate Verifier</h3>
+                    <p>Empowers students to inspect official transcripts with calculated verified GPAs and allows corporate employers to mathematically authenticate single grades without tampering risks[cite: 25, 28].</p>
+                    <div class="tech-tags">
+                        <span class="tech-tag">Zero-Knowledge</span>
+                        <span class="tech-tag">React</span>
+                        <span class="tech-tag">Axios</span>
+                        <span class="tech-tag">Tailwind</span>
+                    </div>
+                </div>
+                <div class="card-actions">
+                    <a href="http://localhost:5174/" target="_blank" class="btn">Launch Portal ↗</a>
+                    <div class="port-info">:5174</div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Research Highlights Section -->
+        <div class="architecture-box">
+            <h2>💡 Architectural Breakthroughs & Research Highlights</h2>
+            <div class="arch-grid">
+                <div class="arch-card">
+                    <h4>⏱️ Autonomous Time-Gating</h4>
+                    <p>Eliminates human error by programmatically enforcing phase transitions (Standard Entry ➔ BOE Review ➔ Appeals ➔ Finalization) based on live system policies[cite: 28].</p>
+                </div>
+                <div class="arch-card">
+                    <h4>🔐 Cryptographic Provenance</h4>
+                    <p>Replaces vulnerable PDF transcripts with decentralized hash anchors and Merkle proofs, making forged results mathematically impossible to conceal[cite: 28].</p>
+                </div>
+                <div class="arch-card">
+                    <h4>🛡️ Idempotency & PDPA Compliance</h4>
+                    <p>Prevents redundant database bloat through strict hash duplicate rejection while stripping private student identifiers to comply with strict data privacy laws[cite: 28].</p>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            SLIIT • Department of Software Engineering • Research Project R26-SE-011
+        </footer>
+    </div>
+
+</body>
 </html>
