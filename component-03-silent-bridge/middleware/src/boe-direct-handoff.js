@@ -1,12 +1,10 @@
 // middleware/src/boe-direct-handoff.js
 const axios = require('axios');
 
-/**
- * Pushes Special Concerns (Re-corrected grading data) from the Silent Bridge 
- * directly to Component 2's bypass endpoint, avoiding the 7-day BOE review cycle.
- */
 async function pushToBOEDirect(uploadReceipt, extractedData) {
-    const COMPONENT_2_DIRECT_ENDPOINT = 'http://localhost:5001/api/boe/direct-update'; 
+    // 🌐 Gets base URL from .env (or localhost) and appends the direct update route
+    const baseUrl = process.env.COMPONENT_2_BASE_URL || process.env.COMPONENT_2_URL || 'http://localhost:5001';
+    const COMPONENT_2_DIRECT_ENDPOINT = `${baseUrl.replace(/\/$/, '')}/api/boe/direct-update`;
 
     const payload = {
         metadata: {
