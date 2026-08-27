@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import Login from './components/Login';
 import LecturerPortal from './components/LecturerPortal';
 import VerificationPortal from './components/VerificationPortal';
-import AdminPortal from './components/AdminPortal'; // 🚨 NEW IMPORT
+import AdminPortal from './components/AdminPortal';
+import AuditTrailViewer from './components/AuditTrailViewer'; // 🔗 Added Audit Trail Viewer
 import './App.css';
 
 function App() {
@@ -34,10 +35,9 @@ function App() {
           <button className="gateway-card" onClick={() => setAppMode('academic')}>
             <div className="gateway-icon">🎓</div>
             <h3>Academic Staff</h3>
-            <p>Secure SSO login for data ingestion and private ledger sealing.</p>
+            <p>Secure SSO login for data ingestion, audit trails, and private ledger sealing.</p>
           </button>
 
-          {/* 🚨 NEW: Admin Gateway Button */}
           <button className="gateway-card" onClick={() => setAppMode('admin')}>
             <div className="gateway-icon">⚙️</div>
             <h3>System Admin</h3>
@@ -48,7 +48,6 @@ function App() {
     );
   }
 
-  // 🚨 NEW: Admin Routing Block
   if (appMode === 'admin') {
     return (
       <div className="portal-wrapper">
@@ -86,13 +85,13 @@ function App() {
     return (
       <div className="portal-wrapper">
         <nav className="top-nav">
-          <div className="nav-logo"><span>💠</span> Silent Bridge Ingestion</div>
+          <div className="nav-logo"><span>💠</span> Silent Bridge Ingestion Portal</div>
           <div className="nav-user">
             <div className="user-info">
               <span className="user-name">{user.name}</span>
               <span className="user-role">{user.role}</span>
             </div>
-            <button className="nav-btn logout" onClick={handleLogout}>Logout</button>
+            <button className="logout-btn" onClick={handleLogout}>Logout</button>
           </div>
         </nav>
         <LecturerPortal user={user} />

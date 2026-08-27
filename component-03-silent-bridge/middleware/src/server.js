@@ -358,6 +358,18 @@ setInterval(async () => {
 }, 5000);
 
 // ============================================================================
+// AUDIT TRAIL API (For Real-Time Ledger Visualization)
+// ============================================================================
+app.get('/api/ledger/audit-trail', async (req, res) => {
+    try {
+        const ledger = await Block.find().sort({ index: 1 });
+        res.status(200).json({ success: true, chain: ledger });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch audit trail.' });
+    }
+});
+
+// ============================================================================
 // SERVER LISTENER
 // ============================================================================
 app.listen(port, () => {
