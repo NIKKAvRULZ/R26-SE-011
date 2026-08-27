@@ -28,10 +28,6 @@ app.use(
 // =====================================================
 
 app.use(
-    express.static("public")
-);
-
-app.use(
     express.static(
         path.join(
             __dirname,
@@ -85,7 +81,9 @@ app.use(
 // =====================================================
 
 const PORT =
-    process.env.PORT || 5002;
+    Number(
+        process.env.PORT || 5002
+    );
 
 
 async function startServer() {
@@ -105,10 +103,25 @@ async function startServer() {
 
         app.listen(
             PORT,
+            "0.0.0.0",
             () => {
 
                 console.log(
-                    `Component 1 Development Server active on http://localhost:${PORT}`
+                    `Component 1 server listening on port ${PORT}`
+                );
+
+                console.log(
+                    `Blockchain RPC: ${
+                        process.env.RPC_URL ||
+                        "http://127.0.0.1:8545"
+                    }`
+                );
+
+                console.log(
+                    `ProofStorage contract: ${
+                        process.env.CONTRACT_ADDRESS ||
+                        "NOT CONFIGURED"
+                    }`
                 );
 
                 console.log(

@@ -22,15 +22,16 @@ const ResultProofIndex =
 // LOAD SMART CONTRACT ABI
 // =====================================================
 
-const contractArtifact = JSON.parse(
-    fs.readFileSync(
-        path.join(
-            __dirname,
-            "ProofStorage.json"
-        ),
-        "utf8"
-    )
-);
+const contractArtifact =
+    JSON.parse(
+        fs.readFileSync(
+            path.join(
+                __dirname,
+                "ProofStorage.json"
+            ),
+            "utf8"
+        )
+    );
 
 const CONTRACT_ABI =
     contractArtifact.abi;
@@ -39,12 +40,34 @@ const CONTRACT_ABI =
 // =====================================================
 // BLOCKCHAIN CONFIGURATION
 // =====================================================
+//
+// LOCAL:
+// RPC_URL=http://127.0.0.1:8545
+// CONTRACT_ADDRESS=0x5FbDB2315678afecb367f032d93F642f64180aa3
+//
+// PRODUCTION:
+// RPC_URL=<persistent RPC>
+// CONTRACT_ADDRESS=<deployed ProofStorage address>
+//
+// =====================================================
 
 const CONTRACT_ADDRESS =
-    "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+    process.env.CONTRACT_ADDRESS;
 
 const BLOCKCHAIN_RPC_URL =
+    process.env.RPC_URL ||
     "http://127.0.0.1:8545";
+
+const DEPLOYER_PRIVATE_KEY =
+    process.env.DEPLOYER_PRIVATE_KEY ||
+    process.env.PRIVATE_KEY;
+
+if (!CONTRACT_ADDRESS) {
+
+    console.warn(
+        "WARNING: CONTRACT_ADDRESS is not configured. Blockchain operations will fail until it is set."
+    );
+}
 
 
 // =====================================================
@@ -60,12 +83,19 @@ const BLOCKCHAIN_RPC_URL =
 function verifyComponent2Hash(record) {
 
     const hashData = [
+
         record.candidateId,
+
         record.moduleCode,
+
         record.marks,
+
         record.grade,
+
         record.version
+
     ].join("|");
+
 
     return crypto
         .createHash("sha256")
@@ -93,27 +123,6 @@ function normalizeMerkleRoot(root) {
 // =====================================================
 // CHECK WHETHER ROOT IS ALREADY ANCHORED
 // =====================================================
-//
-// Returns:
-// {
-//   exists: true,
-//   ipfsCID,
-//   timestamp,
-//   uploadedBy
-// }
-//
-// OR
-//
-// {
-//   exists: false
-// }
-//
-// Important:
-// getProof() reverts when the root does not exist.
-// We intentionally catch that specific case and treat
-// it as "not anchored yet".
-//
-// =====================================================
 
 async function getExistingAnchoredProof(
     provider,
@@ -137,6 +146,7 @@ async function getExistingAnchoredProof(
         const uploadedBy =
             proof[2];
 
+
         if (
             !ipfsCID ||
             !timestamp ||
@@ -147,6 +157,7 @@ async function getExistingAnchoredProof(
                 exists: false
             };
         }
+
 
         return {
 
@@ -169,8 +180,7 @@ async function getExistingAnchoredProof(
                 ""
             );
 
-        // The contract uses this revert message
-        // when the requested Root does not exist.
+
         if (
             message.includes(
                 "Proof not found for the provided Merkle Root"
@@ -182,14 +192,12 @@ async function getExistingAnchoredProof(
             };
         }
 
-        // Some ethers/RPC versions expose the revert
-        // as a generic CALL_EXCEPTION with nested data.
-        // Treat a missing proof only when the known
-        // contract error is present somewhere.
+
         const serialized =
             JSON.stringify(
                 error
             );
+
 
         if (
             serialized.includes(
@@ -202,7 +210,7 @@ async function getExistingAnchoredProof(
             };
         }
 
-        // Any other error is a real blockchain/RPC failure.
+
         throw error;
     }
 }
@@ -210,16 +218,6 @@ async function getExistingAnchoredProof(
 
 // =====================================================
 // UPSERT PROOF INDEX
-// =====================================================
-//
-// We deliberately do NOT use insertMany().
-//
-// Repeated Component 2 retries should update the existing
-// candidate/module mapping instead of creating duplicate
-// MongoDB index documents.
-//
-// Version is intentionally NOT stored.
-//
 // =====================================================
 
 async function upsertProofIndex(
@@ -230,6 +228,7 @@ async function upsertProofIndex(
 ) {
 
     let storedCount = 0;
+
 
     for (
         const record
@@ -247,6 +246,7 @@ async function upsertProofIndex(
             },
 
             {
+
                 $set: {
 
                     merkleRoot:
@@ -267,6 +267,7 @@ async function upsertProofIndex(
                     moduleCode:
                         record.moduleCode
                 }
+
             },
 
             {
@@ -274,8 +275,10 @@ async function upsertProofIndex(
             }
         );
 
+
         storedCount++;
     }
+
 
     return storedCount;
 }
@@ -286,7 +289,6 @@ async function upsertProofIndex(
 // =====================================================
 //
 // POST /generate-proof
-//
 // POST /blockchain/storeHash
 //
 // =====================================================
@@ -322,7 +324,7 @@ exports.generateProofManifest =
 
 
             // =================================================
-            // PHASE 1 — VALIDATE COMPONENT 2 RECORDS
+            // VALIDATE COMPONENT 2 RECORDS
             // =================================================
 
             const finalizedRecords =
@@ -339,7 +341,10 @@ exports.generateProofManifest =
                         ) {
 
                             throw new Error(
-                                `Incomplete record received for candidate ${record.candidateId || "unknown"}`
+                                `Incomplete record received for candidate ${
+                                    record.candidateId ||
+                                    "unknown"
+                                }`
                             );
                         }
 
@@ -391,7 +396,7 @@ exports.generateProofManifest =
 
 
             // =================================================
-            // EXTRACT MERKLE LEAF HASHES
+            // EXTRACT LEAF HASHES
             // =================================================
 
             const leafHashes =
@@ -446,8 +451,16 @@ exports.generateProofManifest =
             // =================================================
 
             console.log(
-                "Connecting to local private blockchain node..."
+                `Connecting to blockchain RPC: ${BLOCKCHAIN_RPC_URL}`
             );
+
+
+            if (!CONTRACT_ADDRESS) {
+
+                throw new Error(
+                    "CONTRACT_ADDRESS is missing from environment variables."
+                );
+            }
 
 
             const provider =
@@ -479,9 +492,44 @@ exports.generateProofManifest =
             // =================================================
             // GET SIGNER
             // =================================================
+            //
+            // Local Hardhat:
+            // Uses account 0.
+            //
+            // Remote/production:
+            // Requires DEPLOYER_PRIVATE_KEY or PRIVATE_KEY.
+            //
+            // =================================================
 
-            const signer =
-                await provider.getSigner(0);
+            let signer;
+
+
+            if (
+                DEPLOYER_PRIVATE_KEY
+            ) {
+
+                signer =
+                    new ethers.Wallet(
+                        DEPLOYER_PRIVATE_KEY,
+                        provider
+                    );
+
+            } else if (
+                /^(https?:\/\/)?(127\.0\.0\.1|localhost|::1)(:\d+)?$/
+                    .test(
+                        BLOCKCHAIN_RPC_URL
+                    )
+            ) {
+
+                signer =
+                    await provider.getSigner(0);
+
+            } else {
+
+                throw new Error(
+                    "DEPLOYER_PRIVATE_KEY or PRIVATE_KEY is required when using a remote blockchain RPC."
+                );
+            }
 
 
             // =================================================
@@ -497,8 +545,7 @@ exports.generateProofManifest =
 
 
             // =================================================
-            // IMPORTANT:
-            // CHECK BLOCKCHAIN BEFORE IPFS UPLOAD
+            // CHECK EXISTING ROOT BEFORE IPFS
             // =================================================
 
             console.log(
@@ -526,15 +573,12 @@ exports.generateProofManifest =
                     "Merkle Root is already anchored."
                 );
 
+
                 console.log(
                     "Reusing existing blockchain IPFS CID:",
                     existingProof.ipfsCID
                 );
 
-
-                // =================================================
-                // REUSE EXISTING CID
-                // =================================================
 
                 const existingCID =
                     existingProof.ipfsCID;
@@ -547,10 +591,6 @@ exports.generateProofManifest =
                         ) * 1000
                     );
 
-
-                // =================================================
-                // REPAIR / UPSERT MONGODB INDEX
-                // =================================================
 
                 let proofIndexReady =
                     true;
@@ -566,13 +606,9 @@ exports.generateProofManifest =
 
                     indexRecordsStored =
                         await upsertProofIndex(
-
                             finalizedRecords,
-
                             formattedMerkleRoot,
-
                             existingCID,
-
                             existingAnchoredAt
                         );
 
@@ -581,9 +617,7 @@ exports.generateProofManifest =
                         `Existing proof reused. Proof lookup index updated for ${indexRecordsStored} record(s).`
                     );
 
-                } catch (
-                    indexError
-                ) {
+                } catch (indexError) {
 
                     proofIndexReady =
                         false;
@@ -598,10 +632,6 @@ exports.generateProofManifest =
                     );
                 }
 
-
-                // =================================================
-                // RETURN EXISTING PROOF
-                // =================================================
 
                 return res.status(200).json({
 
@@ -668,14 +698,11 @@ exports.generateProofManifest =
                 "Merkle Root is not anchored yet."
             );
 
+
             console.log(
                 "Creating new IPFS proof manifest..."
             );
 
-
-            // =================================================
-            // CREATE IPFS PAYLOAD
-            // =================================================
 
             const ipfsPayload = {
 
@@ -720,7 +747,7 @@ exports.generateProofManifest =
 
 
             // =================================================
-            // ANCHOR ROOT + CID
+            // ANCHOR
             // =================================================
 
             console.log(
@@ -740,10 +767,6 @@ exports.generateProofManifest =
             );
 
 
-            // =================================================
-            // WAIT FOR CONFIRMATION
-            // =================================================
-
             const receipt =
                 await tx.wait();
 
@@ -755,7 +778,7 @@ exports.generateProofManifest =
 
 
             // =================================================
-            // STORE CANDIDATE -> ROOT/CID INDEX
+            // STORE PROOF INDEX
             // =================================================
 
             const anchoredAt =
@@ -776,13 +799,9 @@ exports.generateProofManifest =
 
                 indexRecordsStored =
                     await upsertProofIndex(
-
                         finalizedRecords,
-
                         formattedMerkleRoot,
-
                         ipfsCID,
-
                         anchoredAt
                     );
 
@@ -791,9 +810,7 @@ exports.generateProofManifest =
                     `Proof lookup index updated for ${indexRecordsStored} record(s).`
                 );
 
-            } catch (
-                indexError
-            ) {
+            } catch (indexError) {
 
                 proofIndexReady =
                     false;
@@ -808,10 +825,6 @@ exports.generateProofManifest =
                 );
             }
 
-
-            // =================================================
-            // RETURN NEW PROOF
-            // =================================================
 
             return res.status(200).json({
 
@@ -894,11 +907,6 @@ exports.generateProofManifest =
 // =====================================================
 // GET LATEST ANCHORED PROOF
 // =====================================================
-//
-// GET /proof/latest
-//
-// Uses the ProofAnchored blockchain event.
-// =====================================================
 
 exports.getLatestProof =
     async (req, res) => {
@@ -910,19 +918,19 @@ exports.getLatestProof =
             );
 
 
-            // =================================================
-            // READ-ONLY PROVIDER
-            // =================================================
+            if (!CONTRACT_ADDRESS) {
+
+                throw new Error(
+                    "CONTRACT_ADDRESS is missing from environment variables."
+                );
+            }
+
 
             const provider =
                 new ethers.JsonRpcProvider(
                     BLOCKCHAIN_RPC_URL
                 );
 
-
-            // =================================================
-            // CHECK CONTRACT
-            // =================================================
 
             const contractCode =
                 await provider.getCode(
@@ -940,10 +948,6 @@ exports.getLatestProof =
             }
 
 
-            // =================================================
-            // CONTRACT INSTANCE
-            // =================================================
-
             const proofStorageContract =
                 new ethers.Contract(
                     CONTRACT_ADDRESS,
@@ -951,10 +955,6 @@ exports.getLatestProof =
                     provider
                 );
 
-
-            // =================================================
-            // GET PROOF EVENTS
-            // =================================================
 
             const filter =
                 proofStorageContract.filters.ProofAnchored();
@@ -967,10 +967,6 @@ exports.getLatestProof =
                     "latest"
                 );
 
-
-            // =================================================
-            // NO EVENTS
-            // =================================================
 
             if (
                 !events ||
@@ -987,10 +983,6 @@ exports.getLatestProof =
                 });
             }
 
-
-            // =================================================
-            // MOST RECENT EVENT
-            // =================================================
 
             const latestEvent =
                 events[
@@ -1028,10 +1020,6 @@ exports.getLatestProof =
             }
 
 
-            // =================================================
-            // BLOCK TIMESTAMP
-            // =================================================
-
             let timestamp =
                 null;
 
@@ -1044,17 +1032,13 @@ exports.getLatestProof =
                     );
 
 
-                if (
-                    block
-                ) {
+                if (block) {
 
                     timestamp =
                         block.timestamp;
                 }
 
-            } catch (
-                timestampError
-            ) {
+            } catch (timestampError) {
 
                 console.warn(
                     "Unable to read anchor block timestamp:",
@@ -1062,10 +1046,6 @@ exports.getLatestProof =
                 );
             }
 
-
-            // =================================================
-            // RETURN
-            // =================================================
 
             return res.status(200).json({
 
@@ -1123,13 +1103,6 @@ exports.getLatestProof =
 // =====================================================
 // GET CANDIDATE + MODULE PROOF CONTEXT
 // =====================================================
-//
-// GET /proof/record/:candidateId/:moduleCode
-//
-// Used by Component 4 to discover which anchored Merkle
-// Root and IPFS CID contain the requested candidate/module.
-//
-// =====================================================
 
 exports.getRecordProofContext =
     async (req, res) => {
@@ -1142,10 +1115,6 @@ exports.getRecordProofContext =
             } =
                 req.params;
 
-
-            // =================================================
-            // VALIDATE REQUEST
-            // =================================================
 
             if (
                 !candidateId ||
@@ -1166,14 +1135,9 @@ exports.getRecordProofContext =
             const normalizedCandidateId =
                 candidateId.trim();
 
-
             const normalizedModuleCode =
                 moduleCode.trim();
 
-
-            // =================================================
-            // QUERY LATEST INDEX ENTRY
-            // =================================================
 
             const indexEntry =
                 await ResultProofIndex
@@ -1195,10 +1159,6 @@ exports.getRecordProofContext =
                     .lean();
 
 
-            // =================================================
-            // NOT FOUND
-            // =================================================
-
             if (
                 !indexEntry
             ) {
@@ -1219,10 +1179,6 @@ exports.getRecordProofContext =
                 });
             }
 
-
-            // =================================================
-            // RETURN LOOKUP RESULT
-            // =================================================
 
             return res.status(200).json({
 
@@ -1273,11 +1229,7 @@ exports.getRecordProofContext =
 
 
 // =====================================================
-// READ ANCHORED PROOF BY ROOT
-// =====================================================
-//
-// GET /proof/:merkleRoot
-//
+// GET ANCHORED PROOF BY ROOT
 // =====================================================
 
 exports.getAnchoredProof =
@@ -1328,6 +1280,14 @@ exports.getAnchoredProof =
             );
 
 
+            if (!CONTRACT_ADDRESS) {
+
+                throw new Error(
+                    "CONTRACT_ADDRESS is missing from environment variables."
+                );
+            }
+
+
             const provider =
                 new ethers.JsonRpcProvider(
                     BLOCKCHAIN_RPC_URL
@@ -1364,16 +1324,6 @@ exports.getAnchoredProof =
                 );
 
 
-            const ipfsCID =
-                proof[0];
-
-            const timestamp =
-                proof[1];
-
-            const uploadedBy =
-                proof[2];
-
-
             return res.status(200).json({
 
                 success:
@@ -1385,13 +1335,13 @@ exports.getAnchoredProof =
                         merkleRoot,
 
                     ipfsCID:
-                        ipfsCID,
+                        proof[0],
 
                     timestamp:
-                        timestamp.toString(),
+                        proof[1].toString(),
 
                     uploadedBy:
-                        uploadedBy
+                        proof[2]
                 }
 
             });
@@ -1421,10 +1371,6 @@ exports.getAnchoredProof =
 
 // =====================================================
 // GET FINALIZED PROOF DATA FROM IPFS
-// =====================================================
-//
-// GET /proof/:merkleRoot/data
-//
 // =====================================================
 
 exports.getProofData =
@@ -1473,6 +1419,14 @@ exports.getProofData =
                 "Requested Merkle Root:",
                 merkleRoot
             );
+
+
+            if (!CONTRACT_ADDRESS) {
+
+                throw new Error(
+                    "CONTRACT_ADDRESS is missing from environment variables."
+                );
+            }
 
 
             const provider =
@@ -1531,10 +1485,6 @@ exports.getProofData =
                 );
 
 
-            // =================================================
-            // VALIDATE IPFS STRUCTURE
-            // =================================================
-
             if (
                 !ipfsData ||
                 !ipfsData.merkleRoot
@@ -1566,10 +1516,6 @@ exports.getProofData =
             }
 
 
-            // =================================================
-            // VERIFY BLOCKCHAIN ROOT == IPFS ROOT
-            // =================================================
-
             if (
                 normalizedIPFSRoot.toLowerCase() !==
                 merkleRoot.toLowerCase()
@@ -1591,10 +1537,6 @@ exports.getProofData =
                 });
             }
 
-
-            // =================================================
-            // VALIDATE FINALIZED RECORD ARRAY
-            // =================================================
 
             if (
                 !Array.isArray(
@@ -1667,10 +1609,6 @@ exports.getProofData =
 // =====================================================
 // GET STUDENT MERKLE PROOF
 // =====================================================
-//
-// POST /proof/merkle-proof
-//
-// =====================================================
 
 exports.getStudentMerkleProof =
     async (req, res) => {
@@ -1707,9 +1645,7 @@ exports.getStudentMerkleProof =
 
 
             if (
-                !formattedMerkleRoot.startsWith(
-                    "0x"
-                )
+                !formattedMerkleRoot.startsWith("0x")
             ) {
 
                 formattedMerkleRoot =
@@ -1755,6 +1691,14 @@ exports.getStudentMerkleProof =
                 "Merkle Root:",
                 formattedMerkleRoot
             );
+
+
+            if (!CONTRACT_ADDRESS) {
+
+                throw new Error(
+                    "CONTRACT_ADDRESS is missing from environment variables."
+                );
+            }
 
 
             const provider =
@@ -1955,10 +1899,6 @@ exports.getStudentMerkleProof =
                 });
             }
 
-
-            // =================================================
-            // RETURN PROOF
-            // =================================================
 
             return res.status(200).json({
 
