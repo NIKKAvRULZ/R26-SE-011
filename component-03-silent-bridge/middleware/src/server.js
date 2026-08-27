@@ -60,7 +60,7 @@ app.post('/api/ingest', upload.single('gradingSheet'), async (req, res) => {
         const uploaderName = req.body.uploader || "UNKNOWN_UPLOADER";
         const isRecorrection = req.body.isRecorrection === 'true';
 
-        console.log(`\n📥 1. Received file: ${req.file.originalname} for Module: ${moduleCode}`);
+        console.log(`\n📥 1. Received file: ${req.file.originalname} for Module: ${moduleCode} (Re-correction: ${isRecorrection})`);
         console.log(`⏳ 2. Checking Institutional Time-Gate Policy against MongoDB Ledger...`);
         
         const policy = getPolicyConfig();
@@ -103,11 +103,38 @@ app.post('/api/ingest', upload.single('gradingSheet'), async (req, res) => {
 
         // --- STAGE 2: EXTRACTION ---
         console.log(`⚙️  3. Extracting and standardizing schema...`);
-        const standardizedJson = parseExcelToJson(req.file.buffer);
+        const incomingRows = parseExcelToJson(req.file.buffer);
 
-        // --- STAGE 3: PRIVATE BLOCKCHAIN ANCHORING ---
+        // --- STAGE 3: INTELLIGENT PATCHING FOR RE-CORRECTIONS ---
+        let finalDataset = incomingRows;
+
+        if (isRecorrection) {
+            console.log(`⚠️ Re-correction detected: Merging incoming appeal rows into existing module ledger state...`);
+            const moduleBlocks = ledger.filter(b => b.moduleCode === moduleCode);
+            
+            if (moduleBlocks.length > 0) {
+                const latestBlock = moduleBlocks[moduleBlocks.length - 1];
+                let existingRecordsMap = {};
+                
+                // Preserve all existing student class marks
+                latestBlock.data.forEach(r => {
+                    existingRecordsMap[r.candidateId.toUpperCase()] = r;
+                });
+
+                // Overwrite or patch only the specific student(s) submitted in the appeal sheet
+                incomingRows.forEach(inc => {
+                    const cid = inc.candidateId.toUpperCase();
+                    existingRecordsMap[cid] = inc; 
+                    console.log(`   ➔ Patched mark record for candidate: ${cid}`);
+                });
+
+                finalDataset = Object.values(existingRecordsMap);
+            }
+        }
+
+        // --- STAGE 4: PRIVATE BLOCKCHAIN ANCHORING ---
         console.log(`🔒 4. Sealing into MongoDB Private Blockchain Ledger...`);
-        const ledgerReceipt = await appendToPrivateBlockchain(standardizedJson, moduleCode, uploaderName, isRecorrection);
+        const ledgerReceipt = await appendToPrivateBlockchain(finalDataset, moduleCode, uploaderName, isRecorrection);
 
         if (ledgerReceipt.status === 'duplicate') {
             console.log(`🛑 Duplicate Payload Detected. Skipped saving.`);
@@ -121,7 +148,7 @@ app.post('/api/ingest', upload.single('gradingSheet'), async (req, res) => {
 
         console.log(`✅ Success! Block Hash: ${ledgerReceipt.blockHash}`);
 
-        // --- STAGE 4: CONTEXT-AWARE ROUTING ---
+        // --- STAGE 5: CONTEXT-AWARE ROUTING ---
         const uploadMetadata = {
             provenanceHash: ledgerReceipt.blockHash,
             moduleCode: moduleCode,
@@ -133,8 +160,9 @@ app.post('/api/ingest', upload.single('gradingSheet'), async (req, res) => {
         let syncStatusVal = 'held-locally';
 
         if (isRecorrection) {
-            console.log(`⚠️ Context Routing: Special Concern flagged. Routing directly to Component 2...`);
-            const handoffResult = await pushToBOEDirect(uploadMetadata, standardizedJson);
+            console.log(`⚠️ Context Routing: Special Concern flagged. Routing ONLY changed appeal records directly to Component 2...`);
+            // Pass ONLY the incoming changed rows to the direct update handoff
+            const handoffResult = await pushToBOEDirect(uploadMetadata, incomingRows);
             
             if (handoffResult.success || handoffResult.status === 'bypassed_boe' || handoffResult.status === 'queued_bypass') {
                 await Block.updateOne(
@@ -152,10 +180,10 @@ app.post('/api/ingest', upload.single('gradingSheet'), async (req, res) => {
         }
 
         res.status(200).json({
-            message: 'Data securely anchored in MongoDB ledger.',
+            message: 'Data securely anchored in MongoDB ledger with patch applied.',
             fileName: req.file.originalname,
             moduleCode: moduleCode,
-            recordCount: standardizedJson.length,
+            recordCount: finalDataset.length,
             provenanceHash: ledgerReceipt.blockHash,
             status: 'new',
             syncStatus: syncStatusVal,
@@ -165,47 +193,6 @@ app.post('/api/ingest', upload.single('gradingSheet'), async (req, res) => {
     } catch (error) {
         console.error('❌ Ingestion Error:', error);
         res.status(500).json({ error: 'Internal Server Error during ingestion' });
-    }
-});
-
-// ============================================================================
-// UNOFFICIAL RESULTS API
-// ============================================================================
-app.get('/api/verify/:studentId', async (req, res) => {
-    try {
-        const studentId = req.params.studentId.toUpperCase();
-        console.log(`\n🔍 Unofficial Results Query received for Candidate: ${studentId}`);
-
-        const ledger = await Block.find().sort({ index: 1 });
-        let latestRecordsMap = {};
-
-        ledger.forEach(block => {
-            const studentRecord = block.data.find(row => row.candidateId.toUpperCase() === studentId);
-            if (studentRecord) {
-                latestRecordsMap[block.moduleCode] = {
-                    moduleCode: block.moduleCode || "UNKNOWN_MODULE",
-                    uploader: block.uploader || "System",
-                    gradingData: studentRecord.gradingData,
-                    provenanceHash: block.blockHash,
-                    sealedAt: block.timestamp,
-                    isRecorrection: block.isRecorrection
-                };
-            }
-        });
-
-        const foundRecords = Object.values(latestRecordsMap);
-
-        if (foundRecords.length > 0) {
-            console.log(`✅ Found ${foundRecords.length} unofficial state records for ${studentId}`);
-            res.status(200).json({ success: true, type: "unofficial", records: foundRecords });
-        } else {
-            console.log(`❌ No unofficial records found for ${studentId}`);
-            res.status(404).json({ success: false, message: "No cryptographic records found." });
-        }
-
-    } catch (error) {
-        console.error('Search Error:', error);
-        res.status(500).json({ error: 'Internal Server Error during verification' });
     }
 });
 
@@ -327,7 +314,6 @@ setInterval(async () => {
             if (timePassed >= stdWindow && timePassed < boeWindow) {
                 console.log(`\n🚀 [Auto-Handoff Trigger] Module ${targetModule} crossed Standard Window. Pushing to BOE...`);
                 
-                // Lock database flag immediately to prevent multi-tick concurrency
                 await Block.updateOne(
                     { blockHash: latestBlock.blockHash }, 
                     { $set: { handedOffToBOE: true } }
@@ -346,13 +332,11 @@ setInterval(async () => {
                     console.log(`✅ Automatic BOE Handoff successfully completed for module ${targetModule}!`);
 
                 } catch (handoffErr) {
-                    // Catch network/Component 2 errors cleanly without referencing 'next'
                     console.log(`ℹ️ Component 2 sync handled for module ${targetModule}: ${handoffErr.message}`);
                 }
             }
         }
     } catch (err) {
-        // Prevent background crash if 'next' was accidentally scoped anywhere here
         console.error("Background Watcher Error:", err.message);
     }
 }, 5000);
@@ -366,32 +350,6 @@ app.get('/api/ledger/audit-trail', async (req, res) => {
         res.status(200).json({ success: true, chain: ledger });
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch audit trail.' });
-    }
-});
-
-// ============================================================================
-// MODULE MARKS PREVIEW API (For batch grade inspection)
-// ============================================================================
-app.get('/api/ledger/module-records/:moduleCode', async (req, res) => {
-    try {
-        const targetModule = req.params.moduleCode.toUpperCase();
-        const ledger = await Block.find({ moduleCode: targetModule }).sort({ index: -1 }); // Get latest block for module
-        
-        if (!ledger || ledger.length === 0) {
-            return res.status(404).json({ success: false, message: "No records found for this module." });
-        }
-
-        const latestBlock = ledger[0]; // Most recent ledger block for this module
-        res.status(200).json({
-            success: true,
-            moduleCode: targetModule,
-            recordCount: ledger.length > 0 ? latestBlock.data.length : 0,
-            records: latestBlock.data,
-            sealedAt: latestBlock.timestamp,
-            provenanceHash: latestBlock.blockHash
-        });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch module records preview.' });
     }
 });
 

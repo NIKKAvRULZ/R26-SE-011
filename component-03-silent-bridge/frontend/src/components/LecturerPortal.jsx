@@ -7,6 +7,67 @@ import './LecturerPortal.css';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
+// 🛡️ Helper Component that automatically pings sync state so it turns green automatically if Component 2 is up
+function AutoSyncBanner({ receipt, API_BASE }) {
+    const [syncState, setSyncState] = useState(receipt.syncStatus);
+    const [isChecking, setIsChecking] = useState(false);
+
+    useEffect(() => {
+        if (syncState === 'synced' || syncState === 'bypassed_boe') return;
+
+        const checkSync = async () => {
+            setIsChecking(true);
+            try {
+                const res = await axios.get(`${API_BASE}/api/module-status/${receipt.moduleCode}`);
+                if (res.status === 200) {
+                    setSyncState('synced');
+                }
+            } catch (err) {
+                // Stays deferred/held locally if offline
+            } finally {
+                setIsChecking(false);
+            }
+        };
+
+        checkSync();
+    }, [receipt.moduleCode, syncState]);
+
+    if (syncState === 'synced' || syncState === 'bypassed_boe') {
+        return (
+            <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981', borderRadius: '8px', color: '#34d399', fontSize: '0.9rem' }}>
+                <strong>⚡ Live Sync Successful:</strong> Payload acknowledged and routed directly to the Board of Examiners layer.
+            </div>
+        );
+    }
+
+    return (
+        <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(245, 158, 11, 0.15)', border: '1px solid #f59e0b', borderRadius: '8px', color: '#fcd34d', fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div>
+                <strong>⚠️ Network Resilience Active:</strong> Payload securely anchored in local immutable ledger. {isChecking ? '(Verifying connection to Component 2...)' : ''}
+            </div>
+            <button 
+                onClick={async () => {
+                    setIsChecking(true);
+                    try {
+                        const res = await axios.get(`${API_BASE}/api/module-status/${receipt.moduleCode}`);
+                        if (res.status === 200) {
+                            setSyncState('synced');
+                        }
+                    } catch (err) {
+                        alert("Component 2 is still unreachable or offline.");
+                    } finally {
+                        setIsChecking(false);
+                    }
+                }}
+                disabled={isChecking}
+                style={{ alignSelf: 'flex-start', background: '#f59e0b', color: '#000', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}
+            >
+                {isChecking ? 'Checking...' : '🔄 Re-check & Sync Now'}
+            </button>
+        </div>
+    );
+}
+
 const LecturerPortal = ({ user }) => {
     const [activeTab, setActiveTab] = useState('ingest'); // 'ingest' or 'audit'
     const [isRecorrection, setIsRecorrection] = useState(false);
@@ -307,35 +368,8 @@ const LecturerPortal = ({ user }) => {
                                     <code>{receipt.provenanceHash}</code>
                                 </div>
 
-                                {/* 🛡️ Dynamic Resilience & Fallback Notification Banner with Re-Check capability */}
-                                <div style={{ marginTop: '1rem' }}>
-                                    {receipt.syncStatus === 'synced' || receipt.syncStatus === 'bypassed_boe' ? (
-                                        <div style={{ padding: '1rem', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981', borderRadius: '8px', color: '#34d399', fontSize: '0.9rem' }}>
-                                            <strong>⚡ Live Sync Successful:</strong> Payload acknowledged and routed directly to the Board of Examiners layer.
-                                        </div>
-                                    ) : (
-                                        <div style={{ padding: '1rem', background: 'rgba(245, 158, 11, 0.15)', border: '1px solid #f59e0b', borderRadius: '8px', color: '#fcd34d', fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                            <div>
-                                                <strong>⚠️ Network Resilience Active:</strong> Component 2 layer was offline or deferred during initial upload. Payload is securely anchored in the local immutable ledger.
-                                            </div>
-                                            <button 
-                                                onClick={async () => {
-                                                    try {
-                                                        const res = await axios.get(`${API_BASE}/api/module-status/${receipt.moduleCode}`);
-                                                        if (res.status === 200) {
-                                                            setReceipt(prev => ({ ...prev, syncStatus: 'synced' }));
-                                                        }
-                                                    } catch (err) {
-                                                        alert("Component 2 is still unreachable or offline.");
-                                                    }
-                                                }}
-                                                style={{ alignSelf: 'flex-start', background: '#f59e0b', color: '#000', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}
-                                            >
-                                                🔄 Re-check & Sync Now
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
+                                {/* 🛡️ Auto-Verifying Resilience Banner Component */}
+                                <AutoSyncBanner receipt={receipt} API_BASE={API_BASE} />
                             </div>
                         )}
                     </>
