@@ -15,7 +15,7 @@ const { pushToBOEDirect } = require('./boe-direct-handoff');
 const Block = require('./models/Block');
 
 const app = express();
-const port = 5000;
+const port = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
@@ -356,6 +356,44 @@ setInterval(async () => {
         console.error("Background Watcher Error:", err.message);
     }
 }, 5000);
+
+// ============================================================================
+// AUDIT TRAIL API (For Real-Time Ledger Visualization)
+// ============================================================================
+app.get('/api/ledger/audit-trail', async (req, res) => {
+    try {
+        const ledger = await Block.find().sort({ index: 1 });
+        res.status(200).json({ success: true, chain: ledger });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch audit trail.' });
+    }
+});
+
+// ============================================================================
+// MODULE MARKS PREVIEW API (For batch grade inspection)
+// ============================================================================
+app.get('/api/ledger/module-records/:moduleCode', async (req, res) => {
+    try {
+        const targetModule = req.params.moduleCode.toUpperCase();
+        const ledger = await Block.find({ moduleCode: targetModule }).sort({ index: -1 }); // Get latest block for module
+        
+        if (!ledger || ledger.length === 0) {
+            return res.status(404).json({ success: false, message: "No records found for this module." });
+        }
+
+        const latestBlock = ledger[0]; // Most recent ledger block for this module
+        res.status(200).json({
+            success: true,
+            moduleCode: targetModule,
+            recordCount: ledger.length > 0 ? latestBlock.data.length : 0,
+            records: latestBlock.data,
+            sealedAt: latestBlock.timestamp,
+            provenanceHash: latestBlock.blockHash
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch module records preview.' });
+    }
+});
 
 // ============================================================================
 // SERVER LISTENER

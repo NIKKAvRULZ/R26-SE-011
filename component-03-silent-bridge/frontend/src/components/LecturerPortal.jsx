@@ -2,11 +2,13 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import axios from 'axios';
+import AuditTrailViewer from './AuditTrailViewer';
 import './LecturerPortal.css';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
 const LecturerPortal = ({ user }) => {
+    const [activeTab, setActiveTab] = useState('ingest'); // 'ingest' or 'audit'
     const [isRecorrection, setIsRecorrection] = useState(false);
     const [selectedFile, setSelectedFile] = useState(null);
     const [uploadStatus, setUploadStatus] = useState('');
@@ -180,112 +182,163 @@ const LecturerPortal = ({ user }) => {
         <div className="portal-wrapper">
             <div className="portal-container">
                 <div className="portal-header">
-                    <h2>Secure Data Ingestion</h2>
+                    <h2>Secure Data Ingestion Portal</h2>
                     <p>
                         Scale-ready academic records management. Upload your grading sheets to mathematically
                         seal records via the Silent Bridge decentralized middleware.
                     </p>
-                </div>
-
-                <div className="policy-banner" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                        <h4 style={{ color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem' }}>
-                            <span>📡</span> Live Module Scanner
-                        </h4>
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontFamily: 'var(--font-mono)' }}>
-                            {currentTime.toLocaleTimeString()}
-                        </span>
-                    </div>
                     
-                    {renderModuleStatus()}
-                </div>
-
-                <div {...getRootProps()} className={`dropzone ${isDragActive ? 'drag-active' : ''}`}>
-                    <input {...getInputProps()} />
-                    <div className="dropzone-content">
-                        <span className="upload-icon">💠</span>
-                        {isDragActive ? (
-                            <p>Release to secure the file...</p>
-                        ) : (
-                            <>
-                                <p>Select or drag grading sheet</p>
-                                <span>Supports .xlsx and .csv files</span>
-                            </>
-                        )}
+                    {/* Navigation Tab Switcher */}
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '1.5rem' }}>
+                        <button 
+                            onClick={() => setActiveTab('ingest')}
+                            style={{ padding: '0.6rem 1.2rem', borderRadius: '8px', border: 'none', background: activeTab === 'ingest' ? 'var(--accent-primary)' : 'var(--bg-secondary)', color: 'white', cursor: 'pointer', fontWeight: '600' }}
+                        >
+                            📥 Ingest & Scanner
+                        </button>
+                        <button 
+                            onClick={() => setActiveTab('audit')}
+                            style={{ padding: '0.6rem 1.2rem', borderRadius: '8px', border: 'none', background: activeTab === 'audit' ? 'var(--accent-primary)' : 'var(--bg-secondary)', color: 'white', cursor: 'pointer', fontWeight: '600' }}
+                        >
+                            🔗 Ledger Audit Trail
+                        </button>
                     </div>
                 </div>
 
-                {selectedFile && (
-                    <div className="file-details">
-                        <div className="file-info-header">
-                            <span className="file-icon" style={{ fontSize: '1.5rem' }}>📄</span>
-                            <span className="file-name" style={{ fontSize: '1.1rem' }}>{selectedFile.name}</span>
-                        </div>
-
-                        <div className="upload-actions" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                            <div style={{ display: 'flex', gap: '1rem', width: '100%' }}>
-                                <input
-                                    type="text"
-                                    placeholder="Enter Module Code (e.g. SE301)"
-                                    value={moduleCode}
-                                    onChange={(e) => setModuleCode(e.target.value.toUpperCase())}
-                                    required
-                                    className="module-input"
-                                    style={{ flex: 1 }}
-                                />
-                                <button
-                                    className="upload-btn"
-                                    onClick={handleUpload}
-                                    disabled={uploadStatus === 'uploading' || !moduleCode.trim()}
-                                >
-                                    {uploadStatus === 'uploading' ? 'Sealing...' : 'Verify & Ledger Upload'}
-                                </button>
+                {activeTab === 'audit' ? (
+                    <AuditTrailViewer />
+                ) : (
+                    <>
+                        <div className="policy-banner" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                <h4 style={{ color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem' }}>
+                                    <span>📡</span> Live Module Scanner
+                                </h4>
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontFamily: 'var(--font-mono)' }}>
+                                    {currentTime.toLocaleTimeString()}
+                                </span>
                             </div>
-
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#aaa', fontSize: '0.9rem' }}>
-                                <input
-                                    type="checkbox"
-                                    checked={isRecorrection}
-                                    onChange={(e) => setIsRecorrection(e.target.checked)}
-                                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                                />
-                                Flag this upload as a formal Re-correction / Grade Appeal
-                            </label>
+                            {renderModuleStatus()}
                         </div>
-                    </div>
-                )}
 
-                {uploadStatus === 'network-error' && (
-                    <div className="alert error">
-                        ⚠️ Connection failure. Decentralized middleware at port 5000 is unreachable.
-                    </div>
-                )}
-
-                {uploadStatus === 'server-blocked' && (
-                    <div className="alert error" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-                        <strong style={{ fontSize: '1.1rem' }}>🛑 Upload Blocked by System Policy</strong>
-                        <span>{errorMessage}</span>
-                    </div>
-                )}
-
-                {uploadStatus === 'success' && receipt && receipt.status === 'duplicate' && (
-                    <div className="alert warning" style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', border: '1px solid var(--warning)', color: '#fcd34d', marginTop: '2rem' }}>
-                        <div>
-                            <strong style={{ display: 'block', fontSize: '1.1rem', marginBottom: '5px' }}>⚠️ Duplicate Payload Rejected</strong>
-                            This exact cryptographic hash has already been anchored to the ledger for <strong>{receipt.moduleCode}</strong>.
+                        <div {...getRootProps()} className={`dropzone ${isDragActive ? 'drag-active' : ''}`}>
+                            <input {...getInputProps()} />
+                            <div className="dropzone-content">
+                                <span className="upload-icon">💠</span>
+                                {isDragActive ? (
+                                    <p>Release to secure the file...</p>
+                                ) : (
+                                    <>
+                                        <p>Select or drag grading sheet</p>
+                                        <span>Supports .xlsx and .csv files</span>
+                                    </>
+                                )}
+                            </div>
                         </div>
-                    </div>
-                )}
-                
-                {uploadStatus === 'success' && receipt && receipt.status === 'new' && (
-                    <div className="receipt-card">
-                        <h3>✅ Cryptographically Secured</h3>
-                        <p><strong>{receipt.recordCount} entries</strong> have been parsed, validated, and permanently sealed.</p>
-                        <div className="hash-box">
-                            <small>SHA-256 Provenance Hash</small>
-                            <code>{receipt.provenanceHash}</code>
-                        </div>
-                    </div>
+
+                        {selectedFile && (
+                            <div className="file-details">
+                                <div className="file-info-header">
+                                    <span className="file-icon" style={{ fontSize: '1.5rem' }}>📄</span>
+                                    <span className="file-name" style={{ fontSize: '1.1rem' }}>{selectedFile.name}</span>
+                                </div>
+
+                                <div className="upload-actions" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    <div style={{ display: 'flex', gap: '1rem', width: '100%' }}>
+                                        <input
+                                            type="text"
+                                            placeholder="Enter Module Code (e.g. SE301)"
+                                            value={moduleCode}
+                                            onChange={(e) => setModuleCode(e.target.value.toUpperCase())}
+                                            required
+                                            className="module-input"
+                                            style={{ flex: 1 }}
+                                        />
+                                        <button
+                                            className="upload-btn"
+                                            onClick={handleUpload}
+                                            disabled={uploadStatus === 'uploading' || !moduleCode.trim()}
+                                        >
+                                            {uploadStatus === 'uploading' ? 'Sealing...' : 'Verify & Ledger Upload'}
+                                        </button>
+                                    </div>
+
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: '#aaa', fontSize: '0.9rem' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={isRecorrection}
+                                            onChange={(e) => setIsRecorrection(e.target.checked)}
+                                            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                                        />
+                                        Flag this upload as a formal Re-correction / Grade Appeal
+                                    </label>
+                                </div>
+                            </div>
+                        )}
+
+                        {uploadStatus === 'network-error' && (
+                            <div className="alert error">
+                                ⚠️ Connection failure. Decentralized middleware at port 5000 is unreachable.
+                            </div>
+                        )}
+
+                        {uploadStatus === 'server-blocked' && (
+                            <div className="alert error" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                                <strong style={{ fontSize: '1.1rem' }}>🛑 Upload Blocked by System Policy</strong>
+                                <span>{errorMessage}</span>
+                            </div>
+                        )}
+
+                        {uploadStatus === 'success' && receipt && receipt.status === 'duplicate' && (
+                            <div className="alert warning" style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', border: '1px solid var(--warning)', color: '#fcd34d', marginTop: '2rem', padding: '1.25rem', borderRadius: '12px' }}>
+                                <div>
+                                    <strong style={{ display: 'block', fontSize: '1.1rem', marginBottom: '5px' }}>⚠️ Duplicate Payload Rejected</strong>
+                                    This exact cryptographic hash has already been anchored to the ledger for <strong>{receipt.moduleCode}</strong>.
+                                </div>
+                            </div>
+                        )}
+                        
+                        {uploadStatus === 'success' && receipt && receipt.status === 'new' && (
+                            <div className="receipt-card">
+                                <h3>✅ Cryptographically Secured</h3>
+                                <p><strong>{receipt.recordCount} entries</strong> have been parsed, validated, and permanently sealed.</p>
+                                <div className="hash-box">
+                                    <small>SHA-256 Provenance Hash</small>
+                                    <code>{receipt.provenanceHash}</code>
+                                </div>
+
+                                {/* 🛡️ Dynamic Resilience & Fallback Notification Banner with Re-Check capability */}
+                                <div style={{ marginTop: '1rem' }}>
+                                    {receipt.syncStatus === 'synced' || receipt.syncStatus === 'bypassed_boe' ? (
+                                        <div style={{ padding: '1rem', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981', borderRadius: '8px', color: '#34d399', fontSize: '0.9rem' }}>
+                                            <strong>⚡ Live Sync Successful:</strong> Payload acknowledged and routed directly to the Board of Examiners layer.
+                                        </div>
+                                    ) : (
+                                        <div style={{ padding: '1rem', background: 'rgba(245, 158, 11, 0.15)', border: '1px solid #f59e0b', borderRadius: '8px', color: '#fcd34d', fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                            <div>
+                                                <strong>⚠️ Network Resilience Active:</strong> Component 2 layer was offline or deferred during initial upload. Payload is securely anchored in the local immutable ledger.
+                                            </div>
+                                            <button 
+                                                onClick={async () => {
+                                                    try {
+                                                        const res = await axios.get(`${API_BASE}/api/module-status/${receipt.moduleCode}`);
+                                                        if (res.status === 200) {
+                                                            setReceipt(prev => ({ ...prev, syncStatus: 'synced' }));
+                                                        }
+                                                    } catch (err) {
+                                                        alert("Component 2 is still unreachable or offline.");
+                                                    }
+                                                }}
+                                                style={{ alignSelf: 'flex-start', background: '#f59e0b', color: '#000', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}
+                                            >
+                                                🔄 Re-check & Sync Now
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
         </div>

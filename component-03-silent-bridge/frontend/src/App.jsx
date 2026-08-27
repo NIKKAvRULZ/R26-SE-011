@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import Login from './components/Login';
 import LecturerPortal from './components/LecturerPortal';
-import VerificationPortal from './components/VerificationPortal';
-import AdminPortal from './components/AdminPortal'; // 🚨 NEW IMPORT
+import AdminPortal from './components/AdminPortal';
+import PublicResultsPortal from './components/PublicResultsPortal'; // 📋 Bulk Results Sheet View
 import './App.css';
 
 function App() {
@@ -25,50 +25,40 @@ function App() {
         </p>
 
         <div className="gateway-grid">
-          <button className="gateway-card" onClick={() => setAppMode('employer')}>
-            <div className="gateway-icon">🏢</div>
-            <h3>Corporate Verifier</h3>
-            <p>Public portal for employers to instantly query and verify transcripts.</p>
-          </button>
-
           <button className="gateway-card" onClick={() => setAppMode('academic')}>
             <div className="gateway-icon">🎓</div>
             <h3>Academic Staff</h3>
-            <p>Secure SSO login for data ingestion and private ledger sealing.</p>
+            <p>Secure SSO login for data ingestion, audit trails, and private ledger sealing.</p>
           </button>
 
-          {/* 🚨 NEW: Admin Gateway Button */}
           <button className="gateway-card" onClick={() => setAppMode('admin')}>
             <div className="gateway-icon">⚙️</div>
             <h3>System Admin</h3>
             <p>Configure dynamic policy rules and time-gate routing windows.</p>
+          </button>
+
+          <button className="gateway-card" onClick={() => setAppMode('public-results')}>
+            <div className="gateway-icon">📋</div>
+            <h3>Published Results Sheets</h3>
+            <p>Public bulk mark-sheets categorized by module code directly from the private ledger.</p>
           </button>
         </div>
       </div>
     );
   }
 
-  // 🚨 NEW: Admin Routing Block
+  if (appMode === 'public-results') {
+    return <PublicResultsPortal onBack={() => setAppMode('landing')} />;
+  }
+
   if (appMode === 'admin') {
     return (
       <div className="portal-wrapper">
         <nav className="top-nav">
           <div className="nav-logo"><span>💠</span> Institutional Policy Admin</div>
-          <button onClick={() => setAppMode('landing')} className="nav-btn">← Return to Gateway</button>
+          <button onClick={() => setAppMode('landing')} className="logout-btn">← Return to Gateway</button>
         </nav>
         <AdminPortal />
-      </div>
-    );
-  }
-
-  if (appMode === 'employer') {
-    return (
-      <div className="portal-wrapper">
-        <nav className="top-nav">
-          <div className="nav-logo"><span>💠</span> Corporate Verification Access</div>
-          <button onClick={() => setAppMode('landing')} className="nav-btn">← Return to Gateway</button>
-        </nav>
-        <VerificationPortal />
       </div>
     );
   }
@@ -77,7 +67,7 @@ function App() {
     if (!user) {
       return (
         <div className="auth-wrapper">
-          <button onClick={() => setAppMode('landing')} className="back-btn">← Return to Gateway</button>
+          <button onClick={() => setAppMode('landing')} className="logout-btn" style={{ margin: '2rem' }}>← Return to Gateway</button>
           <Login onLoginSuccess={handleLoginSuccess} />
         </div>
       );
@@ -86,13 +76,13 @@ function App() {
     return (
       <div className="portal-wrapper">
         <nav className="top-nav">
-          <div className="nav-logo"><span>💠</span> Silent Bridge Ingestion</div>
+          <div className="nav-logo"><span>💠</span> Silent Bridge Ingestion Portal</div>
           <div className="nav-user">
             <div className="user-info">
               <span className="user-name">{user.name}</span>
               <span className="user-role">{user.role}</span>
             </div>
-            <button className="nav-btn logout" onClick={handleLogout}>Logout</button>
+            <button className="logout-btn" onClick={handleLogout}>Logout</button>
           </div>
         </nav>
         <LecturerPortal user={user} />
