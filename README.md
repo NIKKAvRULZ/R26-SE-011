@@ -48,6 +48,7 @@ We engineered **Silent Bridge**, a multi-phase, blockchain-anchored academic ver
 - **Merkle Trees & IPFS (Pinata)**: For hierarchical dataset compilation and decentralized storage of finalized academic records.
 - **Ethereum Blockchain**: For immutable anchoring of system proofs and Merkle roots.
 - **React.js, Vite & Tailwind/CSS**: For modern, highly responsive lecturer, administrator, and corporate verification portals featuring live ticking clocks and timezone-localized timeline scanners.
+- **Cloud Infrastructure**: Live production deployment integrated across **Vercel** (Frontend portal) and **Railway** (Decentralized middleware backend), with automated fallback routing and real-time network resilience banners.
 
 ---
 
@@ -115,7 +116,7 @@ graph TD
 <summary><b>🧩 COMPONENT 3 — DATA INGESTION LAYER (Silent Bridge)</b></summary>
 
 ### 🎯 Purpose
-Acts as the secure, decentralized "front door" of the system. It handles manual lecturer uploads, dynamically standardizes schema heterogeneity, and seals records into a temporary private cryptographic ledger before BOE handoff.
+Acts as the secure, decentralized "front door" of the system. It handles manual lecturer uploads, dynamically standardizes schema heterogeneity, seals records into a temporary private cryptographic ledger, and automatically handles cloud-native synchronization and BOE handoffs.
 
 #### ✅ Core Engineering Features
 - **Schema-Agnostic Parsing**: Utilizes `SheetJS` to dynamically extract complex, heterogeneous grading rubrics (e.g., Assignment 1, Midterm, Final) without breaking.
@@ -123,7 +124,8 @@ Acts as the secure, decentralized "front door" of the system. It handles manual 
 - **Cryptographic Private Ledger**: Replaces standard databases with a mathematically linked, append-only JSON blockchain. Every upload generates a SHA-256 `blockHash` tied to the `previousHash`.
 - **Idempotency Control (Duplicate Rejection)**: Deterministically calculates payload hashes to intercept and reject duplicate file uploads before they consume network bandwidth.
 - **Context-Aware Routing**: UI includes a bypass flag allowing lecturers to mark specific uploads as formal "Re-corrections," altering downstream BOE handling.
-
+- **Live Cloud Architecture**: Fully deployed and connected across Vercel (frontend client) and Railway (middleware backend API: `https://r26-se-011-production.up.railway.app`), featuring automated network resilience banners and offline fallback protection.
+- 
 #### ✅ Output & Handoff to Component 2
 Sends a strictly standardized API contract to the BOE Layer. The payload includes critical cryptographic metadata and the context-routing flag:
 ```json
@@ -149,20 +151,20 @@ Sends a strictly standardized API contract to the BOE Layer. The payload include
 To run the complete end-to-end Component 3 pipeline (Frontend, Middleware, Mock Server, and Policy Admin), open **three separate terminal windows**:
 
 #### 🗂️ 1. Terminal 1: Start the Middleware Server
-Open a second terminal, navigate to the middleware folder, and start the mock backend stand-in (runs on port 4000):
+Open a first terminal, navigate to the middleware folder, and start the backend stand-in (runs on port 5000):
 ```bash
 cd middleware
 node src/server.js
 ```
 
 #### 🛠️ 2. Terminal 2: Start the Mock Component 2 Server
-Navigate to your middleware folder and boot the main Node.js server (runs on port `5000`):
+Navigate to your middleware folder and boot the main Node.js server (runs on port `5001`):
 ```bash
 cd middleware
 node src/mock-server.js
 ```
 #### 💻 3. Terminal 3: Start the React Frontend
-Open a third terminal, navigate to your frontend directory, install dependencies (if not already done), and launch the Vite development server:
+Open a third terminal, navigate to your frontend directory, install dependencies, and launch the Vite development server:
 ```bash
 cd frontend
 npm install
@@ -265,7 +267,7 @@ Allows employers/students to verify authenticity.
 | :--- | :--- |
 | **Component 1** | 🟢 Hashing + Merkle + IPFS completed |
 | **Component 2** | 🟢 BOE APIs + Versioning + Hashing completed |
-| **Component 3** | 🟢 Silent Bridge, dynamic time-gates, schema parser, idempotency, live module scanner & admin dashboard completed |
+| **Component 3** | 🟢 Silent Bridge, dynamic time-gates, schema parser, idempotency, live cloud synchronization (Vercel & Railway), live module scanner & admin dashboard completed|
 | **Component 4** | 🟢 ZKP verification backend completed |
 
 ---
