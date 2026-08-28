@@ -114,7 +114,7 @@ export default function App() {
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-              <a href="https://component-2-boe-backend.onrender.com" target="_blank" rel="noreferrer" style={btnStyle}>Launch Portal ↗</a>
+              <a href="https://component-2-boe-frontend.onrender.com" target="_blank" rel="noreferrer" style={btnStyle}>Launch Portal ↗</a>
               <div style={portStyle}>Render</div>
             </div>
           </div>
@@ -136,7 +136,7 @@ export default function App() {
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-              <a href="https://github.com/nithikas-projects/silent-bridge-comp1" target="_blank" rel="noreferrer" style={btnStyle}>Repository ↗</a>
+              <a href="https://r26-se-011-production-6665.up.railway.app/" target="_blank" rel="noreferrer" style={btnStyle}>Repository ↗</a>
               <div style={portStyle}>GitHub</div>
             </div>
           </div>
