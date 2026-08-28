@@ -112,22 +112,25 @@ graph TD
 
 ## 🏗 System Components
 
-<details>
-<summary><b>🧩 COMPONENT 3 — DATA INGESTION LAYER (Silent Bridge)</b></summary>
+<details open>
+<summary><b>🧩 COMPONENT 3 — DATA INGESTION LAYER & CLOUD ARCHITECTURE (Silent Bridge)</b></summary>
 
 ### 🎯 Purpose
-Acts as the secure, decentralized "front door" of the system. It handles manual lecturer uploads, dynamically standardizes schema heterogeneity, seals records into a temporary private cryptographic ledger, and automatically handles cloud-native synchronization and BOE handoffs.
+Acts as the secure, decentralized "front door" of the system. It handles manual lecturer uploads, dynamically standardizes schema heterogeneity, seals records into a temporary private cryptographic ledger, and automatically manages cloud-native synchronization and automated Board of Examiners (BOE) handoffs.
 
-#### ✅ Core Engineering Features
-- **Schema-Agnostic Parsing**: Utilizes `SheetJS` to dynamically extract complex, heterogeneous grading rubrics (e.g., Assignment 1, Midterm, Final) without breaking.
+#### ✅ Core Engineering & Recent Enhancements
+- **Schema-Agnostic Parsing**: Utilizes `SheetJS` to dynamically extract complex, heterogeneous grading rubrics (e.g., Assignment 1, Midterm, Final, Marks, Grades) without breaking.
 - **PDPA Privacy Compliance**: Automatically strips Personally Identifiable Information (PII) like names and emails, anchoring only Candidate IDs and Grades.
 - **Cryptographic Private Ledger**: Replaces standard databases with a mathematically linked, append-only JSON blockchain. Every upload generates a SHA-256 `blockHash` tied to the `previousHash`.
 - **Idempotency Control (Duplicate Rejection)**: Deterministically calculates payload hashes to intercept and reject duplicate file uploads before they consume network bandwidth.
 - **Context-Aware Routing**: UI includes a bypass flag allowing lecturers to mark specific uploads as formal "Re-corrections," altering downstream BOE handling.
-- **Live Cloud Architecture**: Fully deployed and connected across Vercel (frontend client) and Railway (middleware backend API: `https://r26-se-011-production.up.railway.app`), featuring automated network resilience banners and offline fallback protection.
-- 
+- **Live Cloud-Native Architecture**: Fully decoupled and deployed across **Vercel** (for high-speed global frontend delivery) and **Railway** (`https://r26-se-011-production.up.railway.app`) for the persistent decentralized middleware backend.
+- **Automated Cloud-to-Cloud Handoffs**: Direct, secure server-to-server payload synchronization routing verified grades automatically to the Board of Examiners (BOE) layer hosted on Render (`https://component-2-boe-backend.onrender.com/api/boe/ingest`).
+- **Real-Time Network Resilience & Auto-Sync Banners**: Built-in fallback error-handling that safely secures blocks locally even if cloud endpoints experience brief latency, paired with interactive UI banners allowing manual or automatic re-syncing.
+- **Dynamic Localized Module Scanner**: A real-time UI dashboard tracking system time-gates (Standard Entry, BOE Review, Special Concerns, and Finalized) that automatically synchronizes and localizes countdowns to the user's local operating system timezone.
+
 #### ✅ Output & Handoff to Component 2
-Sends a strictly standardized API contract to the BOE Layer. The payload includes critical cryptographic metadata and the context-routing flag:
+Sends a strictly standardized API contract to the BOE Layer (`https://component-2-boe-backend.onrender.com/api/boe/ingest`). The payload includes critical cryptographic metadata and the context-routing flag:
 ```json
 {
   "metadata": {
@@ -225,7 +228,7 @@ Creates the FINAL tamper-proof system.
 5. **Blockchain Anchoring**: Store the **CID** and **Merkle Root** on Ethereum. (We don't store full student records to save blockchain storage costs).
 </details>
 
-<details open>
+<details >
 <summary><b>🧩 COMPONENT 4 — VERIFICATION LAYER</b></summary>
 
 ### 🎯 Purpose
