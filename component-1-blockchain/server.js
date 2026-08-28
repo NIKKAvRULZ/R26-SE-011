@@ -24,6 +24,34 @@ app.use(
 
 
 // =====================================================
+// HEALTH CHECK
+// =====================================================
+//
+// Used by Railway to confirm that the service is alive.
+// This endpoint does not depend on blockchain/IPFS/MongoDB.
+//
+// =====================================================
+
+app.get(
+    "/health",
+    (req, res) => {
+
+        res.status(200).json({
+
+            status: "ok",
+
+            service:
+                "component-1-blockchain",
+
+            timestamp:
+                new Date().toISOString()
+
+        });
+    }
+);
+
+
+// =====================================================
 // STATIC FRONTEND
 // =====================================================
 
@@ -89,6 +117,30 @@ const PORT =
 async function startServer() {
 
     try {
+
+        // =================================================
+        // VALIDATE REQUIRED CONFIGURATION
+        // =================================================
+
+        if (
+            !process.env.PROOF_INDEX_MONGO_URI
+        ) {
+
+            throw new Error(
+                "PROOF_INDEX_MONGO_URI is missing from environment variables."
+            );
+        }
+
+
+        if (
+            !process.env.CONTRACT_ADDRESS
+        ) {
+
+            console.warn(
+                "WARNING: CONTRACT_ADDRESS is not configured. Blockchain operations will fail until it is set."
+            );
+        }
+
 
         // =================================================
         // CONNECT TO PROOF INDEX DATABASE
