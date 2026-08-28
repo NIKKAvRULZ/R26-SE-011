@@ -1,306 +1,305 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
 import SilentBridgeApp from './SilentBridgeApp';
 import './App.css';
 
 export default function App() {
-  const [activeView, setActiveView] = useState('master-hub');
+  const [activeView, setActiveView] = useState('master-hub'); // 'master-hub' or 'component-3'
 
   if (activeView === 'component-3') {
     return <SilentBridgeApp onReturnToMasterHub={() => setActiveView('master-hub')} />;
   }
 
-  const components = [
-    {
-      id: 'comp3',
-      number: 'COMPONENT 3',
-      title: 'Silent Bridge Ingestion Portal',
-      description: 'Schema-agnostic Excel/CSV parsing, time-gate policy enforcement, duplicate prevention, and private ledger SHA-256 block chaining.',
-      badge: 'Active Hub',
-      borderColor: '#10b981',
-      badgeBg: 'rgba(16, 185, 129, 0.15)',
-      badgeColor: '#34d399',
-      techs: ['Node.js', 'Express', 'SheetJS', 'React'],
-      actionType: 'internal',
-      target: 'component-3',
-      statusText: 'Online :5173'
-    },
-    {
-      id: 'comp2',
-      number: 'COMPONENT 2',
-      title: 'BOE Review & Moderation Layer',
-      description: 'Board of Examiners moderation portal, version history tracking, audit trails, and automated timeout finalization rules.',
-      badge: 'Moderation Portal',
-      borderColor: '#f59e0b',
-      badgeBg: 'rgba(245, 158, 11, 0.15)',
-      badgeColor: '#fcd34d',
-      techs: ['MongoDB', 'Mongoose', 'Cron Jobs', 'React'],
-      actionType: 'external',
-      link: 'https://component-2-boe-backend.onrender.com',
-      statusText: 'Render Cloud'
-    },
-    {
-      id: 'comp1',
-      number: 'COMPONENT 1',
-      title: 'Blockchain Proof & Storage Layer',
-      description: 'Compiles final institutional academic datasets into Merkle trees, pins records securely to IPFS via Pinata, and anchors roots on Ethereum.',
-      badge: 'Proof & Storage',
-      borderColor: '#3b82f6',
-      badgeBg: 'rgba(59, 130, 246, 0.15)',
-      badgeColor: '#60a5fa',
-      techs: ['Solidity', 'IPFS / Pinata', 'Merkle Trees', 'Web3'],
-      actionType: 'external',
-      link: 'https://github.com/nithikas-projects/silent-bridge-comp1',
-      statusText: 'GitHub Repo'
-    },
-    {
-      id: 'comp4',
-      number: 'COMPONENT 4',
-      title: 'Verification & ZKP Gateway',
-      description: 'Empowers students and corporate employers to verify authentic academic results instantly using zero-knowledge proofs and immutable Merkle root proofs.',
-      badge: 'Verifier Hub',
-      borderColor: '#a855f7',
-      badgeBg: 'rgba(168, 85, 247, 0.15)',
-      badgeColor: '#c084fc',
-      techs: ['Zero-Knowledge', 'React', 'Axios', 'Tailwind'],
-      actionType: 'internal',
-      target: 'component-3',
-      statusText: 'Integrated'
-    }
-  ];
-
   return (
     <div style={{
-      minHeight: '100vh',
-      backgroundColor: '#060911',
-      color: '#f8fafc',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      padding: '3rem 1.5rem',
       fontFamily: "'Inter', sans-serif",
-      position: 'relative',
-      overflowX: 'hidden'
+      backgroundColor: "#060911",
+      color: "#f8fafc",
+      minHeight: "100vh",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      padding: "3rem 1.5rem",
+      backgroundImage: `
+        radial-gradient(circle at 15% 15%, rgba(59, 130, 246, 0.08) 0%, transparent 45%),
+        radial-gradient(circle at 85% 85%, rgba(139, 92, 246, 0.06) 0%, transparent 45%)
+      `
     }}>
-      
-      {/* Background Glows */}
-      <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '400px', height: '400px', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '50%', filter: 'blur(100px)', pointerEvents: 'none' }}></div>
-      <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '400px', height: '400px', background: 'rgba(139, 92, 246, 0.08)', borderRadius: '50%', filter: 'blur(100px)', pointerEvents: 'none' }}></div>
-
-      <div style={{ maxWidth: '1100px', width: '100%', zIndex: 1 }}>
+      <div style={{ maxWidth: "1100px", width: "100%" }}>
         
         {/* Header */}
-        <motion.header 
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          style={{ textAlign: 'center', marginBottom: '3.5rem' }}
-        >
+        <header style={{ textAlign: "center", marginBottom: "3.5rem" }}>
           <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            fontFamily: 'monospace',
-            fontSize: '0.75rem',
-            textTransform: 'uppercase',
-            letterSpacing: '0.1em',
-            padding: '0.35rem 0.85rem',
-            background: 'rgba(59, 130, 246, 0.1)',
-            color: '#60a5fa',
-            border: '1px solid rgba(59, 130, 246, 0.25)',
-            borderRadius: '20px',
-            marginBottom: '1rem'
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            fontFamily: "monospace",
+            fontSize: "0.75rem",
+            textTransform: "uppercase",
+            letterSpacing: "0.1em",
+            padding: "0.35rem 0.85rem",
+            background: "rgba(59, 130, 246, 0.1)",
+            color: "#60a5fa",
+            border: "1px solid rgba(59, 130, 246, 0.25)",
+            borderRadius: "20px",
+            marginBottom: "1rem"
           }}>
-            <span style={{ width: '7px', height: '7px', backgroundColor: '#10b981', borderRadius: '50%', boxShadow: '0 0 8px #10b981' }}></span>
-            System Operational • Decentralized Architecture Active
+            <span style={{
+              width: "7px",
+              height: "7px",
+              backgroundColor: "#10b981",
+              borderRadius: "50%",
+              boxShadow: "0 0 8px #10b981"
+            }}></span>
+            System Operational • All Services Connected
           </div>
-
           <h1 style={{
-            fontSize: '2.75rem',
-            fontWeight: '800',
-            letterSpacing: '-0.03em',
-            marginBottom: '0.75rem',
-            background: 'linear-gradient(135deg, #ffffff 0%, #cbd5e1 50%, #94a3b8 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent'
+            fontSize: "2.75rem",
+            fontWeight: "800",
+            letterSpacing: "-0.03em",
+            marginBottom: "0.75rem",
+            background: "linear-gradient(135deg, #ffffff 0%, #cbd5e1 50%, #94a3b8 100%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent"
           }}>
             Decentralized Academic Grading Platform
           </h1>
-          <p style={{ color: '#94a3b8', fontSize: '1.1rem', maxWidth: '700px', margin: '0 auto', lineHeight: '1.5' }}>
-            SLIIT Software Engineering Research Project (R26-SE-011) — End-to-End Immutable Academic Verification Ecosystem.
+          <p style={{ color: "#94a3b8", fontSize: "1.1rem", maxWidth: "700px", margin: "0 auto", lineHeight: "1.5" }}>
+            Comprehensive Design and Analysis Research Project — Central Demonstration Hub for End-to-End Workflow Validation
           </p>
-        </motion.header>
+        </header>
 
-        {/* Section Heading */}
-        <div style={{ fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', marginBottom: '1.5rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span style={{ width: '8px', height: '8px', backgroundColor: '#3b82f6', borderRadius: '2px' }}></span>
-          Interactive System Components & Portals
+        {/* Components Grid */}
+        <div style={{ fontSize: "1.1rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "#64748b", marginBottom: "1.25rem", fontWeight: "700" }}>
+          ⚡ System Components & Portals
         </div>
 
-        {/* 4-Column Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))', gap: '1.5rem', marginBottom: '3.5rem' }}>
-          {components.map((comp, idx) => (
-            <motion.div
-              key={comp.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: idx * 0.1 }}
-              style={{
-                background: 'rgba(17, 24, 39, 0.75)',
-                backdropFilter: 'blur(16px)',
-                border: `1px solid ${comp.borderColor}40`,
-                borderRadius: '20px',
-                padding: '2rem',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4)',
-                transition: 'all 0.3s ease'
-              }}
-            >
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
-                  <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', fontWeight: '700', color: '#94a3b8', padding: '0.3rem 0.65rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                    {comp.number}
-                  </span>
-                  <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', padding: '0.3rem 0.75rem', borderRadius: '20px', background: comp.badgeBg, color: comp.badgeColor, border: `1px solid ${comp.borderColor}30`, fontWeight: '600' }}>
-                    {comp.badge}
-                  </span>
-                </div>
-
-                <h3 style={{ fontSize: '1.35rem', fontWeight: '700', marginBottom: '0.75rem', color: '#fff' }}>
-                  {comp.title}
-                </h3>
-                <p style={{ color: '#94a3b8', fontSize: '0.925rem', lineHeight: '1.6', marginBottom: '1.5rem' }}>
-                  {comp.description}
-                </p>
-
-                {/* Tech Tags */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '1.75rem' }}>
-                  {comp.techs.map((tech, tIdx) => (
-                    <span key={tIdx} style={{ fontSize: '0.75rem', fontFamily: 'monospace', padding: '0.2rem 0.5rem', background: 'rgba(255,255,255,0.03)', borderRadius: '4px', color: '#64748b', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      {tech}
-                    </span>
-                  ))}
-                </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "1.5rem", marginBottom: "3.5rem" }}>
+          
+          {/* Component 3: Silent Bridge */}
+          <div style={cardStyle}>
+            <div>
+              <div style={cardHeaderStyle}>
+                <span style={iconStyle}>📥</span>
+                <span style={tagStyle}>COMPONENT 3</span>
               </div>
-
-              {/* Action Button & Status */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', paddingTop: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                {comp.actionType === 'internal' ? (
-                  <button
-                    onClick={() => setActiveView(comp.target)}
-                    style={{
-                      flex: 1,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '0.5rem',
-                      background: '#f8fafc',
-                      color: '#060911',
-                      fontWeight: '600',
-                      fontSize: '0.9rem',
-                      padding: '0.75rem 1.5rem',
-                      borderRadius: '10px',
-                      cursor: 'pointer',
-                      border: 'none',
-                      transition: 'background 0.2s'
-                    }}
-                  >
-                    Launch Portal →
-                  </button>
-                ) : (
-                  <a
-                    href={comp.link}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{
-                      flex: 1,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '0.5rem',
-                      background: '#f8fafc',
-                      color: '#060911',
-                      fontWeight: '600',
-                      fontSize: '0.9rem',
-                      padding: '0.75rem 1.5rem',
-                      borderRadius: '10px',
-                      textDecoration: 'none',
-                      transition: 'background 0.2s'
-                    }}
-                  >
-                    Access Service ↗
-                  </a>
-                )}
-                <div style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: '#64748b', background: 'rgba(0,0,0,0.3)', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                  {comp.statusText}
-                </div>
+              <h3>Silent Bridge & Lecturer Portal</h3>
+              <p style={cardTextStyle}>Schema-agnostic Excel/CSV ingestion engine featuring automated PII masking, SHA-256 private ledger chaining, duplicate prevention, and dynamic institutional time-gates.</p>
+              <div style={techTagsStyle}>
+                <span style={techTagStyle}>Node.js</span>
+                <span style={techTagStyle}>Express</span>
+                <span style={techTagStyle}>SheetJS</span>
+                <span style={techTagStyle}>React</span>
               </div>
-            </motion.div>
-          ))}
-        </div>
-
-        {/* Research Highlights Box */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          style={{
-            background: '#0d1322',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            borderRadius: '24px',
-            padding: '2.5rem',
-            boxShadow: '0 15px 35px rgba(0, 0, 0, 0.5)'
-          }}
-        >
-          <h2 style={{ fontSize: '1.35rem', fontWeight: '700', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#f8fafc' }}>
-            <span style={{ padding: '0.5rem', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '10px', border: '1px solid rgba(59, 130, 246, 0.2)', color: '#60a5fa' }}>💡</span>
-            Architectural Breakthroughs & Research Highlights
-          </h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
-            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '1.5rem', borderRadius: '16px' }}>
-              <h4 style={{ color: '#38bdf8', fontSize: '1.05rem', fontWeight: '600', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span>⏱️</span> Autonomous Time-Gating
-              </h4>
-              <p style={{ color: '#94a3b8', fontSize: '0.875rem', lineHeight: '1.6' }}>
-                Programmatically enforces phase transitions (Standard Entry ➔ BOE Review ➔ Appeals ➔ Finalization) with zero human intervention.
-              </p>
             </div>
-            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '1.5rem', borderRadius: '16px' }}>
-              <h4 style={{ color: '#38bdf8', fontSize: '1.05rem', fontWeight: '600', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span>🔐</span> Cryptographic Provenance
-              </h4>
-              <p style={{ color: '#94a3b8', fontSize: '0.875rem', lineHeight: '1.6' }}>
-                Replaces vulnerable PDF transcripts with decentralized hash anchors and Merkle proofs, making forged transcripts mathematically impossible.
-              </p>
-            </div>
-            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '1.5rem', borderRadius: '16px' }}>
-              <h4 style={{ color: '#38bdf8', fontSize: '1.05rem', fontWeight: '600', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span>🛡️</span> Idempotency & PDPA
-              </h4>
-              <p style={{ color: '#94a3b8', fontSize: '0.875rem', lineHeight: '1.6' }}>
-                Prevents redundant ledger bloat via strict hash duplicate rejection while stripping private student identifiers to comply with strict privacy regulations.
-              </p>
+            <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+              <button onClick={() => setActiveView('component-3')} style={btnStyle}>Launch Portal →</button>
+              <div style={portStyle}>Active Hub</div>
             </div>
           </div>
-        </motion.div>
+
+          {/* Component 2: BOE Layer */}
+          <div style={cardStyle}>
+            <div>
+              <div style={cardHeaderStyle}>
+                <span style={iconStyle}>🏛️</span>
+                <span style={tagStyle}>COMPONENT 2</span>
+              </div>
+              <h3>Board of Examiners (BOE)</h3>
+              <p style={cardTextStyle}>Governs review windows, automated timeout finalization, context-aware grade appeal overrides, and versioned internal audit trails prior to blockchain proof batching.</p>
+              <div style={techTagsStyle}>
+                <span style={techTagStyle}>MongoDB</span>
+                <span style={techTagStyle}>Mongoose</span>
+                <span style={techTagStyle}>Cron Jobs</span>
+                <span style={techTagStyle}>React</span>
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+              <a href="https://component-2-boe-backend.onrender.com" target="_blank" rel="noreferrer" style={btnStyle}>Launch Portal ↗</a>
+              <div style={portStyle}>Render</div>
+            </div>
+          </div>
+
+          {/* Component 1: Core Ledger & IPFS */}
+          <div style={cardStyle}>
+            <div>
+              <div style={cardHeaderStyle}>
+                <span style={iconStyle}>🔗</span>
+                <span style={tagStyle}>COMPONENT 1</span>
+              </div>
+              <h3>Core Ledger & Proof Layer</h3>
+              <p style={cardTextStyle}>Compiles final institutional records into Merkle trees, stores immutable dataset bundles securely on IPFS via Pinata, and anchors the root cryptographic proofs on Ethereum.</p>
+              <div style={techTagsStyle}>
+                <span style={techTagStyle}>Solidity</span>
+                <span style={techTagStyle}>IPFS / Pinata</span>
+                <span style={techTagStyle}>Merkle Trees</span>
+                <span style={techTagStyle}>Web3</span>
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+              <a href="https://github.com/nithikas-projects/silent-bridge-comp1" target="_blank" rel="noreferrer" style={btnStyle}>Repository ↗</a>
+              <div style={portStyle}>GitHub</div>
+            </div>
+          </div>
+
+          {/* Component 4: Student/Employer Portal */}
+          <div style={cardStyle}>
+            <div>
+              <div style={cardHeaderStyle}>
+                <span style={iconStyle}>🎓</span>
+                <span style={tagStyle}>COMPONENT 4</span>
+              </div>
+              <h3>Student & Corporate Verifier</h3>
+              <p style={cardTextStyle}>Empowers students to inspect official transcripts with calculated verified GPAs and allows corporate employers to mathematically authenticate single grades without tampering risks[cite: 25].</p>
+              <div style={techTagsStyle}>
+                <span style={techTagStyle}>Zero-Knowledge</span>
+                <span style={techTagStyle}>React</span>
+                <span style={techTagStyle}>Axios</span>
+                <span style={techTagStyle}>Tailwind</span>
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+              <button onClick={() => { setActiveView('component-3'); }} style={btnStyle}>View Results ↗</button>
+              <div style={portStyle}>Integrated</div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Research Highlights Section */}
+        <div style={{
+          background: "#0d1322",
+          border: "1px solid rgba(255, 255, 255, 0.08)",
+          borderRadius: "24px",
+          padding: "2.5rem",
+          boxShadow: "0 15px 35px rgba(0, 0, 0, 0.5)"
+        }}>
+          <h2 style={{ fontSize: "1.5rem", marginBottom: "1.5rem", display: "flex", alignItems: "center", gap: "0.75rem", color: "#f8fafc" }}>
+            💡 Architectural Breakthroughs & Research Highlights
+          </h2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1.5rem" }}>
+            <div style={archCardStyle}>
+              <h4 style={{ color: "#38bdf8", marginBottom: "0.5rem" }}>⏱️ Autonomous Time-Gating</h4>
+              <p style={{ color: "#94a3b8", fontSize: "0.875rem", lineHeight: "1.6" }}>Eliminates human error by programmatically enforcing phase transitions (Standard Entry ➔ BOE Review ➔ Appeals ➔ Finalization).</p>
+            </div>
+            <div style={archCardStyle}>
+              <h4 style={{ color: "#38bdf8", marginBottom: "0.5rem" }}>🔐 Cryptographic Provenance</h4>
+              <p style={{ color: "#94a3b8", fontSize: "0.875rem", lineHeight: "1.6" }}>Replaces vulnerable PDF transcripts with decentralized hash anchors and Merkle proofs, making forged results mathematically impossible.</p>
+            </div>
+            <div style={archCardStyle}>
+              <h4 style={{ color: "#38bdf8", marginBottom: "0.5rem" }}>🛡️ Idempotency & PDPA</h4>
+              <p style={{ color: "#94a3b8", fontSize: "0.875rem", lineHeight: "1.6" }}>Prevents redundant database bloat through strict hash duplicate rejection while stripping private student identifiers to comply with privacy laws.</p>
+            </div>
+          </div>
+        </div>
 
         <footer style={{
-          marginTop: '3.5rem',
-          textAlign: 'center',
-          color: '#64748b',
-          fontSize: '0.85rem',
-          fontFamily: 'monospace',
-          borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-          paddingTop: '2rem',
-          width: '100%'
+          marginTop: "3.5rem",
+          textAlign: "center",
+          color: "#64748b",
+          fontSize: "0.85rem",
+          fontFamily: "monospace",
+          borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+          paddingTop: "2rem",
+          width: "100%"
         }}>
-          SLIIT • Department of Software Engineering • Research Project R26-SE-011 • Fully Deployed on Vercel & Railway
+          SLIIT • Department of Software Engineering • Research Project R26-SE-011
         </footer>
-
       </div>
     </div>
   );
 }
+
+// Reusable inline styles matching your HTML theme
+const cardStyle = {
+  background: "rgba(17, 24, 39, 0.7)",
+  backdropFilter: "blur(16px)",
+  border: "1px solid rgba(255, 255, 255, 0.08)",
+  borderRadius: "20px",
+  padding: "2rem",
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "space-between",
+  boxShadow: "0 10px 30px rgba(0, 0, 0, 0.4)"
+};
+
+const cardHeaderStyle = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  marginBottom: "1.25rem"
+};
+
+const iconStyle = {
+  fontSize: "2rem",
+  padding: "0.75rem",
+  background: "rgba(255, 255, 255, 0.03)",
+  border: "1px solid rgba(255, 255, 255, 0.08)",
+  borderRadius: "14px"
+};
+
+const tagStyle = {
+  fontFamily: "monospace",
+  fontSize: "0.7rem",
+  padding: "0.3rem 0.65rem",
+  borderRadius: "6px",
+  background: "rgba(255, 255, 255, 0.05)",
+  color: "#94a3b8",
+  border: "1px solid rgba(255, 255, 255, 0.08)"
+};
+
+const cardTextStyle = {
+  color: "#94a3b8",
+  fontSize: "0.925rem",
+  lineHeight: "1.6",
+  marginBottom: "1.75rem"
+};
+
+const techTagsStyle = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "0.4rem",
+  marginBottom: "1.75rem"
+};
+
+const techTagStyle = {
+  fontSize: "0.75rem",
+  fontFamily: "monospace",
+  padding: "0.2rem 0.5rem",
+  background: "rgba(255, 255, 255, 0.03)",
+  borderRadius: "4px",
+  color: "#64748b"
+};
+
+const btnStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "0.5rem",
+  background: "#f8fafc",
+  color: "#060911",
+  textDecoration: "none",
+  fontWeight: "600",
+  fontSize: "0.9rem",
+  padding: "0.75rem 1.5rem",
+  borderRadius: "10px",
+  cursor: "pointer",
+  border: "none",
+  flex: 1
+};
+
+const portStyle = {
+  fontFamily: "monospace",
+  fontSize: "0.8rem",
+  color: "#64748b",
+  background: "rgba(0, 0, 0, 0.3)",
+  padding: "0.75rem 1rem",
+  borderRadius: "10px",
+  border: "1px solid rgba(255, 255, 255, 0.08)"
+};
+
+const archCardStyle = {
+  background: "rgba(17, 24, 39, 0.7)",
+  border: "1px solid rgba(255, 255, 255, 0.08)",
+  borderRadius: "16px",
+  padding: "1.5rem"
+};
