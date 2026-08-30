@@ -93,7 +93,7 @@ export default function App() {
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
               <button onClick={() => setActiveView('component-3')} style={btnStyle}>Launch Portal →</button>
-              <div style={portStyle}>Active Hub</div>
+              <div style={portStyle}>Active</div>
             </div>
           </div>
 
@@ -115,7 +115,7 @@ export default function App() {
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
               <a href="https://component-2-boe-frontend.onrender.com" target="_blank" rel="noreferrer" style={btnStyle}>Launch Portal ↗</a>
-              <div style={portStyle}>Render</div>
+              <div style={portStyle}>Active Hub</div>
             </div>
           </div>
 
@@ -137,7 +137,7 @@ export default function App() {
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
               <a href="https://r26-se-011-production-6665.up.railway.app/" target="_blank" rel="noreferrer" style={btnStyle}>Repository ↗</a>
-              <div style={portStyle}>GitHub</div>
+              <div style={portStyle}>Active</div>
             </div>
           </div>
 
@@ -158,8 +158,8 @@ export default function App() {
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-              <button onClick={() => { setActiveView('component-3'); }} style={btnStyle}>View Results ↗</button>
-              <div style={portStyle}>Integrated</div>
+              <a href="https://component-4-security-layer-production.up.railway.app/" target="_blank" rel="noreferrer" style={btnStyle}>View Results ↗</a>
+              <div style={portStyle}>Active</div>
             </div>
           </div>
 
