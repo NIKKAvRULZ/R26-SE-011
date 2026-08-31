@@ -41,7 +41,7 @@ export default function PublicResultsPortal({ onBack }) {
     return (
         <div className="portal-wrapper">
             <nav className="top-nav">
-                <div className="nav-logo"><span>💠</span> Official Published Mark-Sheets</div>
+                <div className="nav-logo"><span>💠</span> Unofficial Published Mark-Sheets</div>
                 <button onClick={onBack} className="logout-btn">← Return to Gateway</button>
             </nav>
 

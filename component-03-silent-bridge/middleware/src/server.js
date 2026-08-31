@@ -105,27 +105,55 @@ app.post('/api/ingest', upload.single('gradingSheet'), async (req, res) => {
         console.log(`⚙️  3. Extracting and standardizing schema...`);
         const incomingRows = parseExcelToJson(req.file.buffer);
 
-        // --- STAGE 3: INTELLIGENT PATCHING FOR RE-CORRECTIONS ---
+        // --- STAGE 3: INTELLIGENT DEEP-PATCHING FOR RE-CORRECTIONS & UPDATES ---
         let finalDataset = incomingRows;
+        const moduleBlocks = ledger.filter(b => b.moduleCode === moduleCode);
 
-        if (isRecorrection) {
-            console.log(`⚠️ Re-correction detected: Merging incoming appeal rows into existing module ledger state...`);
-            const moduleBlocks = ledger.filter(b => b.moduleCode === moduleCode);
+        // If the module already has historical records in ledger, apply non-destructive merging
+        if (moduleBlocks.length > 0) {
+            const latestBlock = moduleBlocks[moduleBlocks.length - 1];
             
-            if (moduleBlocks.length > 0) {
-                const latestBlock = moduleBlocks[moduleBlocks.length - 1];
-                let existingRecordsMap = {};
+            // Check if this upload is an appeal OR a partial update sheet
+            if (isRecorrection || incomingRows.length < latestBlock.data.length) {
+                console.log(`⚠️ Patching incoming rows into existing module ledger dataset (${latestBlock.data.length} existing records)...`);
                 
-                // Preserve all existing student class marks
+                // Deep clone existing records by candidateId
+                let existingRecordsMap = {};
                 latestBlock.data.forEach(r => {
-                    existingRecordsMap[r.candidateId.toUpperCase()] = r;
+                    existingRecordsMap[r.candidateId.toUpperCase()] = {
+                        candidateId: r.candidateId,
+                        gradingData: { ...r.gradingData }
+                    };
                 });
 
-                // Overwrite or patch only the specific student(s) submitted in the appeal sheet
+                // Intelligently patch ONLY the target candidate(s)
                 incomingRows.forEach(inc => {
                     const cid = inc.candidateId.toUpperCase();
-                    existingRecordsMap[cid] = inc; 
-                    console.log(`   ➔ Patched mark record for candidate: ${cid}`);
+                    
+                    if (existingRecordsMap[cid]) {
+                        // Extract any variation of mark/grade from incoming row
+                        const newMarks = inc.gradingData["Marks"] || inc.gradingData["New Marks"] || inc.gradingData["Override Marks"] || inc.gradingData["Final Marks"];
+                        const newGrade = inc.gradingData["Final Grade"] || inc.gradingData["Appealed Grade"] || inc.gradingData["Override Grade"] || inc.gradingData["Grade"];
+
+                        // Update only the marks & grades while preserving past assessment history
+                        if (newMarks !== undefined) {
+                            existingRecordsMap[cid].gradingData["Marks"] = String(newMarks);
+                        }
+                        if (newGrade !== undefined) {
+                            existingRecordsMap[cid].gradingData["Final Grade"] = String(newGrade);
+                        }
+
+                        // Copy over any other updated breakdown attributes
+                        Object.keys(inc.gradingData).forEach(k => {
+                            existingRecordsMap[cid].gradingData[k] = String(inc.gradingData[k]);
+                        });
+
+                        console.log(`   ➔ Successfully patched Mark & Grade for candidate: ${cid}`);
+                    } else {
+                        // If it's a completely new candidate ID added in this sheet
+                        existingRecordsMap[cid] = inc;
+                        console.log(`   ➔ Added new candidate record: ${cid}`);
+                    }
                 });
 
                 finalDataset = Object.values(existingRecordsMap);

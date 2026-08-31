@@ -14,7 +14,7 @@ const parseExcelToJson = (fileBuffer) => {
             const studentIdKey = keys.find(key => key.toLowerCase().includes('id') || key.toLowerCase().includes('student'));
             
             // 2. Define keywords to explicitly strip out (PII and non-grade metadata)
-            const excludedKeywords = ['name', 'first', 'last', 'email', 'module', 'semester', 'course', 'year', 'code', 'program', 'degree', 'department', 'faculty', 'intake', 'group'];
+            const excludedKeywords = ['name', 'first', 'last', 'email', 'module', 'semester', 'course', 'year', 'code', 'program', 'degree', 'department', 'faculty', 'intake', 'group','Phone Number'];
             
             // 3. Dynamically harvest ALL remaining columns (Assignments, Labs, Finals)
             const extractedGrades = {};
