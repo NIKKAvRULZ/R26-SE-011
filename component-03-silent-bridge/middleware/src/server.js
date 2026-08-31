@@ -313,9 +313,9 @@ app.post('/api/policy', (req, res) => {
 });
 
 // ============================================================================
-// DEMO RESET UTILITY (For presentation cleanup)
+// DEMO RESET UTILITY (Supports both GET and POST)
 // ============================================================================
-app.post('/api/demo/reset-ledger', async (req, res) => {
+app.all('/api/demo/reset-ledger', async (req, res) => {
     try {
         await Block.collection.drop();
         console.log("⚠️ [DEMO UTILITY] MongoDB ledger collection wiped clean for presentation reset.");
