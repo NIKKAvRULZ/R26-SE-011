@@ -107,17 +107,15 @@ app.post('/api/ingest', upload.single('gradingSheet'), async (req, res) => {
 
         // --- STAGE 3: INTELLIGENT DEEP-PATCHING FOR RE-CORRECTIONS & UPDATES ---
         let finalDataset = incomingRows;
+        let changedRecordsForHandoff = [];
         const moduleBlocks = ledger.filter(b => b.moduleCode === moduleCode);
 
-        // If the module already has historical records in ledger, apply non-destructive merging
         if (moduleBlocks.length > 0) {
             const latestBlock = moduleBlocks[moduleBlocks.length - 1];
             
-            // Check if this upload is an appeal OR a partial update sheet
             if (isRecorrection || incomingRows.length < latestBlock.data.length) {
                 console.log(`⚠️ Patching incoming rows into existing module ledger dataset (${latestBlock.data.length} existing records)...`);
                 
-                // Deep clone existing records by candidateId
                 let existingRecordsMap = {};
                 latestBlock.data.forEach(r => {
                     existingRecordsMap[r.candidateId.toUpperCase()] = {
@@ -126,16 +124,14 @@ app.post('/api/ingest', upload.single('gradingSheet'), async (req, res) => {
                     };
                 });
 
-                // Intelligently patch ONLY the target candidate(s)
                 incomingRows.forEach(inc => {
                     const cid = inc.candidateId.toUpperCase();
                     
-                    if (existingRecordsMap[cid]) {
-                        // Extract any variation of mark/grade from incoming row
-                        const newMarks = inc.gradingData["Marks"] || inc.gradingData["New Marks"] || inc.gradingData["Override Marks"] || inc.gradingData["Final Marks"];
-                        const newGrade = inc.gradingData["Final Grade"] || inc.gradingData["Appealed Grade"] || inc.gradingData["Override Grade"] || inc.gradingData["Grade"];
+                    // Resolve marks and grades from any possible column header variations
+                    const newMarks = inc.gradingData["Marks"] || inc.gradingData["New Marks"] || inc.gradingData["Override Marks"] || inc.gradingData["Final Marks"] || inc.gradingData["Total Score"];
+                    const newGrade = inc.gradingData["Final Grade"] || inc.gradingData["Appealed Grade"] || inc.gradingData["Override Grade"] || inc.gradingData["Grade"] || inc.gradingData["Overall Grade"];
 
-                        // Update only the marks & grades while preserving past assessment history
+                    if (existingRecordsMap[cid]) {
                         if (newMarks !== undefined) {
                             existingRecordsMap[cid].gradingData["Marks"] = String(newMarks);
                         }
@@ -143,21 +139,36 @@ app.post('/api/ingest', upload.single('gradingSheet'), async (req, res) => {
                             existingRecordsMap[cid].gradingData["Final Grade"] = String(newGrade);
                         }
 
-                        // Copy over any other updated breakdown attributes
+                        // Copy all remaining assessment breakdown keys
                         Object.keys(inc.gradingData).forEach(k => {
                             existingRecordsMap[cid].gradingData[k] = String(inc.gradingData[k]);
                         });
 
-                        console.log(`   ➔ Successfully patched Mark & Grade for candidate: ${cid}`);
+                        changedRecordsForHandoff.push(existingRecordsMap[cid]);
+                        console.log(`   ➔ Patched candidate record: ${cid} (Marks: ${existingRecordsMap[cid].gradingData["Marks"]}, Grade: ${existingRecordsMap[cid].gradingData["Final Grade"]})`);
                     } else {
-                        // If it's a completely new candidate ID added in this sheet
-                        existingRecordsMap[cid] = inc;
+                        // Normalize the new candidate
+                        const normalizedNew = {
+                            candidateId: inc.candidateId,
+                            gradingData: {
+                                "Marks": String(newMarks || 0),
+                                "Final Grade": String(newGrade || "Pass"),
+                                ...inc.gradingData
+                            }
+                        };
+                        existingRecordsMap[cid] = normalizedNew;
+                        changedRecordsForHandoff.push(normalizedNew);
                         console.log(`   ➔ Added new candidate record: ${cid}`);
                     }
                 });
 
                 finalDataset = Object.values(existingRecordsMap);
             }
+        }
+
+        // If no records were explicitly patched into map, use incoming rows as handoff
+        if (changedRecordsForHandoff.length === 0) {
+            changedRecordsForHandoff = incomingRows;
         }
 
         // --- STAGE 4: PRIVATE BLOCKCHAIN ANCHORING ---
@@ -188,9 +199,10 @@ app.post('/api/ingest', upload.single('gradingSheet'), async (req, res) => {
         let syncStatusVal = 'held-locally';
 
         if (isRecorrection) {
-            console.log(`⚠️ Context Routing: Special Concern flagged. Routing ONLY changed appeal records directly to Component 2...`);
-            // Pass ONLY the incoming changed rows to the direct update handoff
-            const handoffResult = await pushToBOEDirect(uploadMetadata, incomingRows);
+            console.log(`⚠️ Context Routing: Special Concern flagged. Routing ${changedRecordsForHandoff.length} normalized appeal records directly to Component 2...`);
+            
+            // Pass the normalized changed records
+            const handoffResult = await pushToBOEDirect(uploadMetadata, changedRecordsForHandoff);
             
             if (handoffResult.success || handoffResult.status === 'bypassed_boe' || handoffResult.status === 'queued_bypass') {
                 await Block.updateOne(
@@ -245,7 +257,6 @@ app.get('/api/module-status/:moduleCode', async (req, res) => {
         const stdWindow = Number(policy.standardUploadWindow);
         const boeWindow = Number(policy.boeReviewWindow);
 
-        // Lazy evaluation: Triggers handoff precisely when the status route is polled after the window closes
         if (timePassed >= stdWindow && timePassed < boeWindow) {
             const latestBlock = ledger.filter(b => b.moduleCode === targetModule).pop();
             
@@ -264,7 +275,7 @@ app.get('/api/module-status/:moduleCode', async (req, res) => {
 
                     console.log(`✅ Automatic BOE Handoff successful for module ${targetModule}!`);
                 } catch (handoffErr) {
-                    console.log(`ℹ️ Component 2 processed or skipped records as duplicates for module ${targetModule}. State synced.`);
+                    console.log(`ℹ️ Component 2 sync handled for module ${targetModule}: ${handoffErr.message}`);
                 }
             }
         }
