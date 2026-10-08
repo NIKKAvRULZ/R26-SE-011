@@ -1,6 +1,6 @@
 # Component 4 deployment
 
-Component 4 is deployed as one Render web service. Express serves both the API
+Component 4 is deployed as one Railway web service. Express serves both the API
 and the compiled React frontend, so the frontend's relative `/api` requests use
 the same public origin and do not require CORS.
 
@@ -10,7 +10,7 @@ the same public origin and do not require CORS.
 2. Component 4 authenticates the employer and receives a candidate, module, and
    claimed grade.
 3. Component 4 calls Component 1 at
-   `https://r26-se-011-production-6665.up.railway.app/proof` to resolve the
+   `https://component-1-blockchain-production-28cc.up.railway.app/proof` to resolve the
    official anchored record, dataset, blockchain anchor, and Merkle proof.
 4. Component 4 compares and verifies the evidence and returns only VALID or
    INVALID to the employer. Component 2 and Component 3 do not need to be called
@@ -43,21 +43,24 @@ Do not run a new trusted setup after deployment unless all artifacts are replace
 together. A production ceremony should use independent entropy contributors;
 the repository setup script is suitable for the research prototype.
 
-## Render deployment
+## Railway deployment
 
-1. Push the repository, including `render.yaml` and the artifacts above, to the
-   Git provider connected to Render.
-2. In Render choose **New > Blueprint**, select this repository, and apply the
-   root `render.yaml`.
-3. When prompted for `MONGODB_URI`, enter the Component 4 MongoDB Atlas URI. Use
+1. Push the repository and the artifacts above to the GitHub repository connected
+   to Railway.
+2. Create a Railway service from that GitHub repository, set the service root
+   directory to `component-04/component4-security-layer`, and deploy with the
+   included `Dockerfile`.
+3. In Railway Variables, set `MONGODB_URI` to the Component 4 MongoDB Atlas URI. Use
    its own database, for example `ZKP_Login`; do not use Component 1's database.
-4. In MongoDB Atlas Network Access, allow Render's outbound traffic. For a demo,
+4. In MongoDB Atlas Network Access, allow Railway's outbound traffic. For a demo,
    `0.0.0.0/0` works but must be protected with a strong database user password.
-5. Deploy and open `https://<component-4-service>.onrender.com/api/health`.
-6. Open `https://<component-4-service>.onrender.com/` for the portal.
+5. Set `ACADEMIC_DATA_BASE_URL` to
+   `https://component-1-blockchain-production-28cc.up.railway.app/proof`.
+6. Deploy and open `https://<component-4-service>.up.railway.app/api/health`.
+7. Open `https://<component-4-service>.up.railway.app/` for the portal.
 
-The platform supplies `PORT`; do not set a fixed production port. The Blueprint
-already sets Component 1's proof base URL. `RPC_URL` and `CONTRACT_ADDRESS` are
+Railway supplies `PORT`; do not set a fixed production port. Configure Component
+1's proof base URL in Railway Variables. `RPC_URL` and `CONTRACT_ADDRESS` are
 only needed when the separate `event-listener.js` worker is deployed; the web
 verification path uses Component 1's proof API.
 
