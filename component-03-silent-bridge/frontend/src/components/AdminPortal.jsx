@@ -21,8 +21,14 @@ export default function AdminPortal() {
     }, []);
 
     const handleChange = (e) => {
-        setPolicy({ ...policy, [e.target.name]: e.target.value });
-    };
+    const { name, value } = e.target;
+    // Keep numbers as numeric types
+    const parsedValue = ['standardUploadWindow', 'boeReviewWindow', 'specialConcernsWindow'].includes(name)
+        ? parseInt(value) || 1
+        : value;
+
+    setPolicy({ ...policy, [name]: parsedValue });
+};
 
     const handleSave = async (e) => {
         e.preventDefault();

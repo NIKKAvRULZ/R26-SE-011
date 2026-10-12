@@ -7,7 +7,7 @@ import './LecturerPortal.css';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
-// 🛡️ Helper Component that automatically pings sync state so it turns green automatically if Component 2 is up
+// 🛡️ Helper Component: Auto Sync Banner
 function AutoSyncBanner({ receipt, API_BASE }) {
     const [syncState, setSyncState] = useState(receipt.syncStatus);
     const [isChecking, setIsChecking] = useState(false);
@@ -30,7 +30,7 @@ function AutoSyncBanner({ receipt, API_BASE }) {
         };
 
         checkSync();
-    }, [receipt.moduleCode, syncState]);
+    }, [receipt.moduleCode, syncState, API_BASE]);
 
     if (syncState === 'synced' || syncState === 'bypassed_boe') {
         return (
@@ -69,7 +69,7 @@ function AutoSyncBanner({ receipt, API_BASE }) {
 }
 
 const LecturerPortal = ({ user }) => {
-    const [activeTab, setActiveTab] = useState('ingest'); // 'ingest' or 'audit'
+    const [activeTab, setActiveTab] = useState('ingest');
     const [isRecorrection, setIsRecorrection] = useState(false);
     const [selectedFile, setSelectedFile] = useState(null);
     const [uploadStatus, setUploadStatus] = useState('');
@@ -81,25 +81,28 @@ const LecturerPortal = ({ user }) => {
     const [currentTime, setCurrentTime] = useState(new Date());
     const [dbTimestamp, setDbTimestamp] = useState(null);
 
-    useEffect(() => {
-        const fetchPolicyAndStatus = async () => {
-            try {
-                const policyRes = await axios.get(`${API_BASE}/api/policy?t=${Date.now()}`);
-                setActivePolicy(policyRes.data);
+    // 📡 Live Policy Fetcher with Auto-Polling
+    const fetchPolicyAndStatus = useCallback(async () => {
+        try {
+            const policyRes = await axios.get(`${API_BASE}/api/policy?cacheBust=${Date.now()}`);
+            setActivePolicy(policyRes.data);
 
-                if (moduleCode.trim().length > 2) {
-                    const statusRes = await axios.get(`${API_BASE}/api/module-status/${moduleCode.trim()}`);
-                    setDbTimestamp(statusRes.data.isNew ? null : statusRes.data.firstUploadTime);
-                } else {
-                    setDbTimestamp(null);
-                }
-            } catch (err) {
-                console.error("Error fetching policy or status:", err);
+            if (moduleCode.trim().length > 2) {
+                const statusRes = await axios.get(`${API_BASE}/api/module-status/${moduleCode.trim()}?cacheBust=${Date.now()}`);
+                setDbTimestamp(statusRes.data.isNew ? null : statusRes.data.firstUploadTime);
+            } else {
+                setDbTimestamp(null);
             }
-        };
-
-        fetchPolicyAndStatus();
+        } catch (err) {
+            console.error("Error fetching policy or status:", err);
+        }
     }, [moduleCode]);
+
+    useEffect(() => {
+        fetchPolicyAndStatus();
+        const pollInterval = setInterval(fetchPolicyAndStatus, 3000); // Live poll policy every 3 seconds
+        return () => clearInterval(pollInterval);
+    }, [fetchPolicyAndStatus]);
 
     useEffect(() => {
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -154,13 +157,75 @@ const LecturerPortal = ({ user }) => {
         }
     };
 
+    // ⏱️ COMPONENT: Active Policy Indicator Card
+    const renderActivePolicyIndicator = () => {
+        if (!activePolicy) return null;
+
+        const isDemo = activePolicy.timeUnit === 'minutes';
+
+        return (
+            <div style={{
+                background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95))',
+                border: '1px solid rgba(59, 130, 246, 0.3)',
+                borderRadius: '12px',
+                padding: '1.25rem 1.5rem',
+                marginBottom: '1.5rem',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)'
+            }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.1)', pb: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '1.2rem' }}>⚙️</span>
+                        <h4 style={{ margin: 0, color: '#f8fafc', fontSize: '1rem', fontWeight: '600' }}>
+                            Active Time-Gate Rules
+                        </h4>
+                    </div>
+                    <span style={{
+                        padding: '0.25rem 0.75rem',
+                        borderRadius: '20px',
+                        fontSize: '0.75rem',
+                        fontWeight: 'bold',
+                        letterSpacing: '0.5px',
+                        background: isDemo ? 'rgba(234, 179, 8, 0.2)' : 'rgba(59, 130, 246, 0.2)',
+                        color: isDemo ? '#fde047' : '#93c5fd',
+                        border: `1px solid ${isDemo ? '#eab308' : '#3b82f6'}`
+                    }}>
+                        {isDemo ? '⚡ DEMO MODE (Minutes)' : '🌐 PRODUCTION MODE (Days)'}
+                    </span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '1rem', textAlign: 'center' }}>
+                    <div style={{ background: 'rgba(255, 255, 255, 0.04)', padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <span style={{ color: '#94a3b8', fontSize: '0.75rem', display: 'block', textTransform: 'uppercase' }}>Phase 1: Standard</span>
+                        <strong style={{ color: '#34d399', fontSize: '1.1rem' }}>
+                            {activePolicy.standardUploadWindow} {activePolicy.timeUnit}
+                        </strong>
+                    </div>
+
+                    <div style={{ background: 'rgba(255, 255, 255, 0.04)', padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <span style={{ color: '#94a3b8', fontSize: '0.75rem', display: 'block', textTransform: 'uppercase' }}>Phase 2: BOE Lock</span>
+                        <strong style={{ color: '#f87171', fontSize: '1.1rem' }}>
+                            {activePolicy.boeReviewWindow} {activePolicy.timeUnit}
+                        </strong>
+                    </div>
+
+                    <div style={{ background: 'rgba(255, 255, 255, 0.04)', padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <span style={{ color: '#94a3b8', fontSize: '0.75rem', display: 'block', textTransform: 'uppercase' }}>Phase 3: Appeals</span>
+                        <strong style={{ color: '#60a5fa', fontSize: '1.1rem' }}>
+                            {activePolicy.specialConcernsWindow} {activePolicy.timeUnit}
+                        </strong>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     const renderModuleStatus = () => {
         if (!activePolicy) return null;
 
         if (moduleCode.trim().length < 3) {
             return (
-                <div style={{ padding: '1.5rem', background: 'var(--bg-primary)', borderRadius: '12px', border: '1px solid var(--border-color)', textAlign: 'center', color: 'var(--text-muted)' }}>
-                    <span style={{ fontSize: '1.5rem', display: 'block', marginBottom: '0.5rem' }}>🔍</span>
+                <div style={{ padding: '1.25rem', background: 'var(--bg-primary)', borderRadius: '12px', border: '1px solid var(--border-color)', textAlign: 'center', color: 'var(--text-muted)' }}>
+                    <span style={{ fontSize: '1.2rem', display: 'block', marginBottom: '0.25rem' }}>🔍</span>
                     Awaiting module selection. Type a Module Code below to view its live access status.
                 </div>
             );
@@ -168,13 +233,13 @@ const LecturerPortal = ({ user }) => {
 
         if (!dbTimestamp) {
             return (
-                <div style={{ padding: '1.5rem', background: 'var(--bg-primary)', borderRadius: '12px', borderLeft: '4px solid #a855f7', textAlign: 'left' }}>
-                    <h3 style={{ color: '#a855f7', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div style={{ padding: '1.25rem', background: 'var(--bg-primary)', borderRadius: '12px', borderLeft: '4px solid #a855f7', textAlign: 'left' }}>
+                    <h3 style={{ color: '#a855f7', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem' }}>
                         <span>✨</span> Unregistered Module
                     </h3>
-                    <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
+                    <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.9rem' }}>
                         <strong>{moduleCode.toUpperCase()}</strong> has no previous uploads in the ledger. 
-                        Uploading now will initialize Day 1 of the Standard Entry phase.
+                        Uploading now will initialize {activePolicy.timeUnit === 'minutes' ? 'Minute 1' : 'Day 1'} of the Standard Entry phase.
                     </p>
                 </div>
             );
@@ -193,7 +258,7 @@ const LecturerPortal = ({ user }) => {
         const phase2End = addTime(startDate, activePolicy.boeReviewWindow, activePolicy.timeUnit);
         const phase3End = addTime(startDate, activePolicy.specialConcernsWindow, activePolicy.timeUnit);
 
-        const formatTime = (date) => date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const formatTime = (date) => date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: activePolicy.timeUnit === 'minutes' ? '2-digit' : undefined });
 
         let currentPhase, statusColor, nextActionText, nextActionTime, statusIcon;
 
@@ -224,10 +289,10 @@ const LecturerPortal = ({ user }) => {
         }
 
         return (
-            <div style={{ padding: '1.5rem', background: 'var(--bg-primary)', borderRadius: '12px', borderLeft: `4px solid ${statusColor}`, textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+            <div style={{ padding: '1.25rem', background: 'var(--bg-primary)', borderRadius: '12px', borderLeft: `4px solid ${statusColor}`, textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                 <div>
                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Current Status: {moduleCode.toUpperCase()}</span>
-                    <h3 style={{ color: statusColor, margin: '0.2rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <h3 style={{ color: statusColor, margin: '0.2rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem' }}>
                         <span>{statusIcon}</span> {currentPhase}
                     </h3>
                 </div>
@@ -249,7 +314,6 @@ const LecturerPortal = ({ user }) => {
                         seal records via the Silent Bridge decentralized middleware.
                     </p>
                     
-                    {/* Navigation Tab Switcher */}
                     <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '1.5rem' }}>
                         <button 
                             onClick={() => setActiveTab('ingest')}
@@ -270,12 +334,15 @@ const LecturerPortal = ({ user }) => {
                     <AuditTrailViewer />
                 ) : (
                     <>
-                        <div className="policy-banner" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                                <h4 style={{ color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem' }}>
+                        {/* ⚙️ LIVE ACTIVE TIME-GATE INDICATOR CARD */}
+                        {renderActivePolicyIndicator()}
+
+                        <div className="policy-banner" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1.25rem', marginBottom: '2rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                <h4 style={{ color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem' }}>
                                     <span>📡</span> Live Module Scanner
                                 </h4>
-                                <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontFamily: 'var(--font-mono)' }}>
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontFamily: 'var(--font-mono)' }}>
                                     {currentTime.toLocaleTimeString()}
                                 </span>
                             </div>
@@ -368,7 +435,6 @@ const LecturerPortal = ({ user }) => {
                                     <code>{receipt.provenanceHash}</code>
                                 </div>
 
-                                {/* 🛡️ Auto-Verifying Resilience Banner Component */}
                                 <AutoSyncBanner receipt={receipt} API_BASE={API_BASE} />
                             </div>
                         )}
