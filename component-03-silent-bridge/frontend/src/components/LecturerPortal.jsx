@@ -30,7 +30,7 @@ function AutoSyncBanner({ receipt, API_BASE }) {
         };
 
         checkSync();
-    }, [receipt.moduleCode, syncState, API_BASE]);
+    }, [receipt.moduleCode, syncState]);
 
     if (syncState === 'synced' || syncState === 'bypassed_boe') {
         return (
@@ -100,10 +100,11 @@ const LecturerPortal = ({ user }) => {
 
     useEffect(() => {
         fetchPolicyAndStatus();
-        const pollInterval = setInterval(fetchPolicyAndStatus, 3000); // Live poll policy every 3 seconds
+        const pollInterval = setInterval(fetchPolicyAndStatus, 3000); 
         return () => clearInterval(pollInterval);
     }, [fetchPolicyAndStatus]);
 
+    // Update the live clock every second for the countdown
     useEffect(() => {
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
         return () => clearInterval(timer);
@@ -172,7 +173,7 @@ const LecturerPortal = ({ user }) => {
                 marginBottom: '1.5rem',
                 boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)'
             }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.1)', pb: '0.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <span style={{ fontSize: '1.2rem' }}>⚙️</span>
                         <h4 style={{ margin: 0, color: '#f8fafc', fontSize: '1rem', fontWeight: '600' }}>
@@ -217,6 +218,19 @@ const LecturerPortal = ({ user }) => {
                 </div>
             </div>
         );
+    };
+
+    const getCountdownString = (endTime) => {
+        const diff = endTime - currentTime;
+        if (diff <= 0) return "00:00:00";
+        
+        const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
+        const m = Math.floor((diff / 1000 / 60) % 60);
+        const s = Math.floor((diff / 1000) % 60);
+
+        if (d > 0) return `${d}d ${h}h ${m}m ${s}s`;
+        return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     };
 
     const renderModuleStatus = () => {
@@ -266,19 +280,19 @@ const LecturerPortal = ({ user }) => {
             currentPhase = "Standard Entry (Open)";
             statusColor = "var(--accent-main)";
             statusIcon = "✅";
-            nextActionText = "Locks for BOE Review at:";
+            nextActionText = "Locks for BOE Review in:";
             nextActionTime = phase1End;
         } else if (currentTime >= phase1End && currentTime < phase2End) {
             currentPhase = "BOE Review (Locked)";
             statusColor = "var(--warning)";
             statusIcon = "🔒";
-            nextActionText = "Unlocks for Special Concerns at:";
+            nextActionText = "Unlocks for Special Concerns in:";
             nextActionTime = phase2End;
         } else if (currentTime >= phase2End && currentTime < phase3End) {
             currentPhase = "Special Concerns (Appeals Open)";
             statusColor = "#3b82f6";
             statusIcon = "📝";
-            nextActionText = "Permanently Locks at:";
+            nextActionText = "Permanently Locks in:";
             nextActionTime = phase3End;
         } else {
             currentPhase = "Permanently Locked (Finalized)";
@@ -296,10 +310,26 @@ const LecturerPortal = ({ user }) => {
                         <span>{statusIcon}</span> {currentPhase}
                     </h3>
                 </div>
-                <div style={{ background: 'var(--bg-secondary)', padding: '0.75rem 1.25rem', borderRadius: '8px', border: '1px solid var(--border-color)', textAlign: 'right' }}>
-                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', display: 'block' }}>{nextActionText}</span>
-                    <strong style={{ color: 'var(--text-primary)', fontSize: '1.1rem' }}>{formatTime(nextActionTime)}</strong>
-                </div>
+                
+                {currentTime < phase3End ? (
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                        <div style={{ background: 'var(--bg-secondary)', padding: '0.75rem 1.25rem', borderRadius: '8px', border: '1px solid var(--border-color)', textAlign: 'right' }}>
+                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', display: 'block' }}>Target Date</span>
+                            <strong style={{ color: 'var(--text-primary)', fontSize: '1.1rem' }}>{formatTime(nextActionTime)}</strong>
+                        </div>
+                        <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '0.75rem 1.25rem', borderRadius: '8px', border: `1px solid ${statusColor}`, textAlign: 'right' }}>
+                            <span style={{ color: statusColor, fontSize: '0.8rem', display: 'block', fontWeight: '600' }}>{nextActionText}</span>
+                            <strong style={{ color: statusColor, fontSize: '1.2rem', fontFamily: 'monospace', letterSpacing: '2px' }}>
+                                ⏳ {getCountdownString(nextActionTime)}
+                            </strong>
+                        </div>
+                    </div>
+                ) : (
+                    <div style={{ background: 'var(--bg-secondary)', padding: '0.75rem 1.25rem', borderRadius: '8px', border: '1px solid var(--border-color)', textAlign: 'right' }}>
+                        <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', display: 'block' }}>{nextActionText}</span>
+                        <strong style={{ color: 'var(--error)', fontSize: '1.1rem' }}>{formatTime(nextActionTime)}</strong>
+                    </div>
+                )}
             </div>
         );
     };
