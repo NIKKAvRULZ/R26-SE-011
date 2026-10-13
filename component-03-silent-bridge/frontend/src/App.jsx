@@ -135,9 +135,9 @@ export default function App() {
                 <span style={techTagStyle}>Web3</span>
               </div>
             </div>
-            <div class="card-actions">
-                    <a href="https://component-1-blockchain-production-28cc.up.railway.app/" target="_blank" class="btn">Launch Ledger ↗</a>
-                    <div class="port-info">:5002</div>
+            <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+              <a href="https://component-1-blockchain-production-28cc.up.railway.app/" target="_blank" rel="noreferrer" style={btnStyle}>Launch Ledger ↗</a>
+              <div style={portStyle}>Active</div>
             </div>
           </div>
 
