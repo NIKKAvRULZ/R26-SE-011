@@ -32,7 +32,7 @@ export default function AdminPortal() {
             setStatus('success');
             setTimeout(() => setStatus(''), 3000);
         } catch (error) {
-            setStatus('error');
+            setStatus(error.response?.data?.component3Saved ? 'sync-error' : 'error');
         }
     };
 
@@ -81,10 +81,11 @@ export default function AdminPortal() {
                     </div>
 
                     <button type="submit" className="save-btn" disabled={status === 'saving'}>
-                        {status === 'saving' ? 'Deploying...' : 'Deploy Policy to Middleware'}
+                        {status === 'saving' ? 'Deploying...' : 'Deploy Policy to Both Components'}
                     </button>
                     
-                    {status === 'success' && <div className="admin-alert success">✅ Policy live! Middleware time-gates updated.</div>}
+                    {status === 'success' && <div className="admin-alert success">✅ Policy synchronized with Component 2 and Component 3.</div>}
+                    {status === 'sync-error' && <div className="admin-alert error">⚠️ Policy is saved in Component 3, but could not reach Component 2. Deploy again when Component 2 is available.</div>}
                     {status === 'error' && <div className="admin-alert error">❌ Failed to update policy.</div>}
                 </form>
             </div>

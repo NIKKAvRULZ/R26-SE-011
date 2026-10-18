@@ -12,6 +12,7 @@ const dashboardRoutes = require("./routes/dashboardRoutes");
 const importRoutes = require("./routes/importRoutes");
 const exportRoutes = require("./routes/exportRoutes");
 const specialConcernRoutes = require("./routes/specialConcernRoutes");
+const policyRoutes = require("./routes/policyRoutes");
 
 const { startFinalizationJob } = require("./jobs/finalizationJob");
 const { startBlockchainJob } = require("./jobs/blockchainJob");
@@ -29,6 +30,7 @@ app.use("/api", dashboardRoutes);
 app.use("/api", importRoutes);
 app.use("/api", exportRoutes);
 app.use("/api", specialConcernRoutes);
+app.use("/api", policyRoutes);
 
 // MongoDB Connection
 mongoose
