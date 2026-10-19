@@ -18,7 +18,7 @@ const {
 } = require('./policy-config');
 
 const app = express();
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 5001;
 
 app.use(cors());
 app.use(express.json());
@@ -180,6 +180,24 @@ app.get('/api/policy', (req, res) => {
         console.error('Failed to load policy:', error);
         res.status(500).json({ error: 'Failed to load policy configuration.' });
     }
+});
+
+app.put('/api/policy', (req, res) => {
+    let policy;
+    try {
+        policy = normalizePolicy(req.body);
+    } catch (error) {
+        return res.status(400).json({ error: error.message });
+    }
+
+    try {
+        savePolicyConfig(policy);
+    } catch (error) {
+        console.error('Failed to update mock Component 2 policy:', error);
+        return res.status(500).json({ error: 'Failed to update policy configuration.' });
+    }
+
+    res.status(200).json({ success: true, policy });
 });
 
 app.post('/api/policy', async (req, res) => {
