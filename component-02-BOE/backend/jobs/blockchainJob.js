@@ -1,16 +1,6 @@
 const FinalResult = require("../models/FinalResult");
 const { sendResultsToComponent1 } = require("../services/blockchainService");
-
-// =======================================
-// DYNAMIC POLICY READER
-// =======================================
-
-const getPolicyConfig = () => {
-  return {
-    timeUnit: process.env.TIME_UNIT || "minutes",
-    specialConcernsWindow: Number(process.env.SPECIAL_CONCERNS_WINDOW || 3),
-  };
-};
+const { getSystemPolicy } = require("../services/systemPolicyService");
 
 // =======================================
 // AUTOMATIC BLOCKCHAIN JOB
@@ -37,7 +27,7 @@ const startBlockchainJob = () => {
 
 const runBlockchainSync = async () => {
   try {
-    const policy = getPolicyConfig();
+    const policy = await getSystemPolicy();
 
     const now = new Date();
 

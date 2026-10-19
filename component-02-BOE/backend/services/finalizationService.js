@@ -1,22 +1,7 @@
 const Result = require("../models/Result");
 const FinalResult = require("../models/FinalResult");
 const { generateResultHash } = require("../utils/hashGenerator");
-
-// =======================================
-// DYNAMIC CONFIG READER (Synced with Component 3 Admin Policy)
-// =======================================
-const getSystemPolicy = () => {
-  const policy = {
-    timeUnit: process.env.TIME_UNIT || "minutes",
-    standardUploadWindow: Number(process.env.STANDARD_UPLOAD_WINDOW || 1),
-    boeReviewWindow: Number(process.env.BOE_REVIEW_WINDOW || 2),
-    specialConcernsWindow: Number(process.env.SPECIAL_CONCERNS_WINDOW || 3),
-  };
-
-  console.log("📡 [Policy Loaded] Using environment configuration:", policy);
-
-  return policy;
-};
+const { getSystemPolicy } = require("./systemPolicyService");
 
 // =======================================
 // FINALIZE EXPIRED BOE RESULTS
@@ -24,7 +9,7 @@ const getSystemPolicy = () => {
 
 const finalizeExpiredResults = async () => {
   try {
-    const policy = getSystemPolicy();
+    const policy = await getSystemPolicy();
     const now = new Date();
 
     let deadlineMs = 0;

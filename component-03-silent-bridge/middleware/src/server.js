@@ -2,8 +2,6 @@
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
-const fs = require('fs');
-const path = require('path');
 const mongoose = require('mongoose');
 require('dotenv').config();
 
@@ -13,6 +11,12 @@ const { appendToPrivateBlockchain } = require('./hashing/blockchain');
 const { pushToBOE } = require('./boe-handoff');
 const { pushToBOEDirect } = require('./boe-direct-handoff'); 
 const Block = require('./models/Block');
+const {
+    getPolicyConfig,
+    normalizePolicy,
+    savePolicyConfig,
+    syncPolicyToComponent2
+} = require('./policy-config');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -23,22 +27,12 @@ app.use(express.json());
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-const configPath = path.join(__dirname, '../system-config.json');
-
 // ============================================================================
 // MONGODB CONNECTION FOR CLOUD PERSISTENCE
 // ============================================================================
 mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI)
 .then(() => console.log("✅ Silent Bridge Middleware connected to MongoDB Atlas."))
 .catch(err => console.error("❌ MongoDB connection error:", err));
-
-// --- HELPER: Read Dynamic University Policy ---
-const getPolicyConfig = () => {
-    if (fs.existsSync(configPath)) {
-        return JSON.parse(fs.readFileSync(configPath));
-    }
-    return { timeUnit: "days", standardUploadWindow: 7, boeReviewWindow: 14, specialConcernsWindow: 21 };
-};
 
 // --- HELPER: Calculate Time Passed ---
 const getTimePassed = (startDate, endDate, unit) => {
@@ -297,19 +291,47 @@ app.get('/api/module-status/:moduleCode', async (req, res) => {
 // ADMIN POLICY API
 // ============================================================================
 app.get('/api/policy', (req, res) => {
-    res.json(getPolicyConfig());
+    try {
+        res.json(getPolicyConfig());
+    } catch (error) {
+        console.error('Failed to load policy:', error);
+        res.status(500).json({ error: 'Failed to load policy configuration.' });
+    }
 });
 
-app.post('/api/policy', (req, res) => {
+app.post('/api/policy', async (req, res) => {
+    let newPolicy;
     try {
-        const newPolicy = req.body;
-        fs.writeFileSync(configPath, JSON.stringify(newPolicy, null, 2));
-        console.log(`\n⚙️ Admin updated system policy:`, newPolicy);
-        res.status(200).json({ success: true, message: "System policy updated successfully!" });
+        newPolicy = normalizePolicy(req.body);
+    } catch (error) {
+        return res.status(400).json({ error: error.message });
+    }
+
+    try {
+        savePolicyConfig(newPolicy);
     } catch (error) {
         console.error("Failed to update policy:", error);
         res.status(500).json({ error: "Failed to update configuration." });
+        return;
     }
+
+    console.log(`\n⚙️ Admin updated system policy:`, newPolicy);
+
+    try {
+        await syncPolicyToComponent2(newPolicy);
+    } catch (error) {
+        console.error('❌ Component 2 policy sync failed:', error.response?.data || error.message);
+        return res.status(502).json({
+            error: 'Policy saved in Component 3, but could not be synchronized with Component 2.',
+            component3Saved: true
+        });
+    }
+
+    res.status(200).json({
+        success: true,
+        component2Synced: true,
+        message: "System policy updated in Component 3 and Component 2."
+    });
 });
 
 // ============================================================================
