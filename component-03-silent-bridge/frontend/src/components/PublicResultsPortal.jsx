@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://r26-se-011-production.up.railway.app';
 
 export default function PublicResultsPortal({ onBack }) {
     const [modules, setModules] = useState([]);
@@ -41,7 +41,7 @@ export default function PublicResultsPortal({ onBack }) {
     return (
         <div className="portal-wrapper">
             <nav className="top-nav">
-                <div className="nav-logo"><span>💠</span> Official Published Mark-Sheets</div>
+                <div className="nav-logo"><span>💠</span> Unofficial Published Mark-Sheets</div>
                 <button onClick={onBack} className="logout-btn">← Return to Gateway</button>
             </nav>
 
@@ -99,8 +99,8 @@ export default function PublicResultsPortal({ onBack }) {
                                             {mod.records.map((row, rIdx) => (
                                                 <tr key={rIdx} style={{ borderBottom: '1px solid var(--border-color)' }}>
                                                     <td style={{ padding: '0.75rem', fontFamily: 'monospace', color: 'var(--accent-primary)' }}>{row.candidateId}</td>
-                                                    <td style={{ padding: '0.75rem' }}>{row.gradingData['Marks'] || row.gradingData['Final Marks'] || row.gradingData['New Marks'] || 'N/A'}</td>
-                                                    <td style={{ padding: '0.75rem', fontWeight: 'bold' }}>{row.gradingData['Final Grade'] || row.gradingData['Overall Grade'] || row.gradingData['Appealed Grade'] || 'Pass'}</td>
+                                                    <td style={{ padding: '0.75rem' }}>{row.gradingData['Marks'] || row.gradingData['Final Marks'] || row.gradingData['New Marks'] || row.gradingData['Final_Exam'] || 'N/A'}</td>
+                                                    <td style={{ padding: '0.75rem', fontWeight: 'bold' }}>{row.gradingData['Final Grade'] || row.gradingData['Overall Grade'] || row.gradingData['Appealed Grade'] ||row.gradingData['Final_Grade'] || 'Pass'}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
