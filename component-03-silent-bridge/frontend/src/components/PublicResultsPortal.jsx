@@ -99,8 +99,8 @@ export default function PublicResultsPortal({ onBack }) {
                                             {mod.records.map((row, rIdx) => (
                                                 <tr key={rIdx} style={{ borderBottom: '1px solid var(--border-color)' }}>
                                                     <td style={{ padding: '0.75rem', fontFamily: 'monospace', color: 'var(--accent-primary)' }}>{row.candidateId}</td>
-                                                    <td style={{ padding: '0.75rem' }}>{row.gradingData['Marks'] || row.gradingData['Final Marks'] || row.gradingData['New Marks'] || 'N/A'}</td>
-                                                    <td style={{ padding: '0.75rem', fontWeight: 'bold' }}>{row.gradingData['Final Grade'] || row.gradingData['Overall Grade'] || row.gradingData['Appealed Grade'] || 'Pass'}</td>
+                                                    <td style={{ padding: '0.75rem' }}>{row.gradingData['Marks'] || row.gradingData['Final Marks'] || row.gradingData['New Marks'] || row.gradingData['Final_Exam'] || 'N/A'}</td>
+                                                    <td style={{ padding: '0.75rem', fontWeight: 'bold' }}>{row.gradingData['Final Grade'] || row.gradingData['Overall Grade'] || row.gradingData['Appealed Grade'] ||row.gradingData['Final_Grade'] || 'Pass'}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
